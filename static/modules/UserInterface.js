@@ -20,6 +20,28 @@ const notificationCloseButton = document.querySelector("#notification-close");
 // Task queue
 const taskQueue = document.querySelector("#taskList");
 
+// Settings panel
+const settingsBtn = document.getElementById('settings-btn');
+const settingsOverlay = document.getElementById('settings-overlay');
+const closeBtn = document.getElementById('close-btn');
+
+// Show the settings panel when the gear button is clicked
+settingsBtn.addEventListener('click', () => {
+    settingsOverlay.style.display = 'flex';
+});
+
+// Hide the settings panel when the close button is clicked
+closeBtn.addEventListener('click', () => {
+    settingsOverlay.style.display = 'none';
+});
+
+// Hide the settings panel when clicking outside of it (only inside the column)
+settingsOverlay.addEventListener('click', (event) => {
+    if (event.target === settingsOverlay) {
+        settingsOverlay.style.display = 'none';
+    }
+});
+
 /* -------------------
 ------- Events -------
 ---------------------*/
@@ -125,7 +147,10 @@ function addTaskCardToQueue(taskId, layoutName, statusMsg, taskNumber) {
                         </div>
                     </div>
                 </div>`
-    document.querySelector("#taskList").innerHTML += taskCard;
+    // Create a temporary container to hold the HTML string
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = taskCard;
+    document.querySelector("#taskList").appendChild(tempDiv.firstChild);
 }
 
 function updateTaskCard(taskId, state, map, containers) {

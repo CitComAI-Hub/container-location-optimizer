@@ -53,67 +53,55 @@ https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js
     <div id="dashboard" class="columns is-mobile is-centered is-hidden">
         <!-- Leaflet map -->
         <div id="map" class="column is-three-quarters has-text-centered"></div>
-        <div class="column">
+        <div class="column is-flex is-flex-direction-column side-panel">
             <h4 class="title is-4">Location Optimization</h4>
-            <h5 class="subtitle is-5">Create new layout</h5>
-            <hr>
-            <!-- Control panel -->
-            <!-- <div class="field">
-                <label class="label">Intialization</label>
-                <div class="control has-icons-left">
-                    <div class="select">
-                        <select>
-                            <option value="random" selected>Random</option>
-                            <option value="heuristic">Heuristic</option>
-                        </select>
+            <h5 class="subtitle is-5">Layouts</h5>
+            <div id="taskList" class="box">
+                <div id="task-card-current" class="task-card task-card-selected">
+                    <div class="task-icon"><span class="icon has-text-info">
+                            <i class="fas fa-circle-info" aria-hidden="true"></i>
+                        </span></div>
+                    <div class="task-content">
+                        <p class="task-name">Current</p>
+                        <div class="tags">
+                            <span class="tag is-light">
+                                <span class="icon-text">
+                                    <span class="icon">
+                                        <i class="fas fa-dumpster" aria-hidden="true"></i>
+                                    </span>
+                                    <span>352</span>
+                                </span>
+                            </span>
+
+                            <span class="tag is-light">
+                                <span class="icon-text">
+                                    <span class="icon">
+                                        <i class="fas fa-people-group" aria-hidden="true"></i>
+                                    </span>
+                                    <span>1000</span>
+                                </span>
+                            </span>
+
+                            <span class="tag is-light">
+                                <span class="icon-text">
+                                    <span class="icon">
+                                        <i class="fas fa-rotate" aria-hidden="true"></i>
+                                    </span>
+                                    <span>150</span>
+                                </span>
+                            </span>
+                        </div>
                     </div>
-                    <div class="icon is-small is-left">
-                        <i class="fas fa-gears"></i>
-                    </div>
+                    <button id="view-current-button" class="button is-small view-button">
+                        <span class="icon is-small">
+                            <i class="fas fa-eye" aria-hidden="true"></i>
+                        </span>
+                    </button>
                 </div>
-            </div> -->
-
-            <div class="field">
-                <label class="label">Layout name</label>
-                <p class="control has-icons-left has-icons-right">
-                    <input id="layout-name" class="input" type="text" placeholder="New layout" value="" />
-                    <span class="icon is-small is-left">
-                        <i class="fas fa-file-pen"></i>
-                    </span>
-                </p>
             </div>
 
-            <div class="field">
-                <label class="label">Maximum containers</label>
-                <p class="control has-icons-left has-icons-right">
-                    <input class="input" type="number" placeholder="352" value="352" />
-                    <span class="icon is-small is-left">
-                        <i class="fas fa-dumpster"></i>
-                    </span>
-                </p>
-            </div>
-
-            <div class="field">
-                <label class="label">Inhabitants per container</label>
-                <p class="control has-icons-left has-icons-right">
-                    <input class="input" type="number" placeholder="1000" value="1000" />
-                    <span class="icon is-small is-left">
-                        <i class="fas fa-people-group"></i>
-                    </span>
-                </p>
-            </div>
-
-            <div class="field">
-                <label class="label">Num. of generations</label>
-                <p class="control has-icons-left has-icons-right">
-                    <input class="input" type="number" placeholder="150" value="150" />
-                    <span class="icon is-small is-left">
-                        <i class="fas fa-rotate"></i>
-                    </span>
-                </p>
-            </div>
-
-            <div class="field is-grouped">
+            <!-- Control panel -->
+            <div class="field is-grouped is-align-self-flex-end control-panel-buttons">
                 <p class="control">
                     <button id="optimize-button" class="button is-primary">
                         <span class="icon is-small">
@@ -122,63 +110,67 @@ https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js
                         <span>Generate New Layout</span>
                     </button>
                 </p>
-                <!-- <p class="control">
-                    <button id="reset-form" class="button">
-                        Reset
+                <p class="control">
+                    <!-- Right Bottom Button with Gear Icon -->
+                    <button class="button" id="settings-btn">
+                        <span class="icon is-small">
+                            <i class="fas fa-cog"></i>
+                        </span>
+                        <span>Settings</span>
                     </button>
-                </p> -->
+                </p>
             </div>
-            <hr>
-            <h5 class="subtitle is-5">Layouts</h5>
-            <!-- <h4 class="title is-4">Queue Panel</h4>
-            <h5 class="subtitle is-5">Tasks status</h5> -->
-            <div id="task-card-current" class="task-card task-card-selected" style="border-left-color: #66d1ff;">
-                <div class="task-icon"><span class="icon has-text-info">
-                        <i class="fas fa-circle-info" aria-hidden="true"></i>
-                    </span></div>
-                <div class="task-content">
-                    <p class="task-name">Current</p>
-                    <div class="tags">
-                        <span class="tag is-light">
-                            <span class="icon-text">
-                                <span class="icon">
-                                    <i class="fas fa-dumpster" aria-hidden="true"></i>
-                                </span>
-                                <span>352</span>
-                            </span>
-                        </span>
 
-                        <span class="tag is-light">
-                            <span class="icon-text">
-                                <span class="icon">
-                                    <i class="fas fa-people-group" aria-hidden="true"></i>
-                                </span>
-                                <span>1000</span>
+            <!-- Overlay Panel for Settings (only inside the column) -->
+            <div class="overlay" id="settings-overlay">
+                <div class="settings-panel">
+                    <!-- Close Button for the settings panel -->
+                    <button class="delete" id="close-btn"></button>
+                    <h2 class="title is-4">Settings</h2>
+                    <!-- Dummy Text Field -->
+                    <div class="field">
+                        <label class="label">Layout name</label>
+                        <p class="control has-icons-left has-icons-right">
+                            <input id="layout-name" class="input" type="text" placeholder="New layout" value="" />
+                            <span class="icon is-small is-left">
+                                <i class="fas fa-file-pen"></i>
                             </span>
-                        </span>
-
-                        <span class="tag is-light">
-                            <span class="icon-text">
-                                <span class="icon">
-                                    <i class="fas fa-rotate" aria-hidden="true"></i>
-                                </span>
-                                <span>150</span>
-                            </span>
-                        </span>
+                        </p>
                     </div>
+
+                    <div class="field">
+                        <label class="label">Maximum containers</label>
+                        <p class="control has-icons-left has-icons-right">
+                            <input class="input" type="number" placeholder="352" value="352" />
+                            <span class="icon is-small is-left">
+                                <i class="fas fa-dumpster"></i>
+                            </span>
+                        </p>
+                    </div>
+
+                    <div class="field">
+                        <label class="label">Inhabitants per container</label>
+                        <p class="control has-icons-left has-icons-right">
+                            <input class="input" type="number" placeholder="1000" value="1000" />
+                            <span class="icon is-small is-left">
+                                <i class="fas fa-people-group"></i>
+                            </span>
+                        </p>
+                    </div>
+
+                    <div class="field">
+                        <label class="label">Num. of generations</label>
+                        <p class="control has-icons-left has-icons-right">
+                            <input class="input" type="number" placeholder="150" value="150" />
+                            <span class="icon is-small is-left">
+                                <i class="fas fa-rotate"></i>
+                            </span>
+                        </p>
+                    </div>
+
+
                 </div>
-                <button id="view-current-button" class="button is-small view-button">
-                    <span class="icon is-small">
-                        <i class="fas fa-eye" aria-hidden="true"></i>
-                    </span>
-                </button>
             </div>
-            <div id="taskList">
-
-
-
-            </div>
-
         </div>
     </div>
 </body>

@@ -135,8 +135,10 @@ option {
 }
 
 .task-card {
-    border: 1px solid #e0e0e0; /* Default border for all sides */
-    border-left-width: 4px; /* Left border width override */
+    border: 1px solid #e0e0e0;
+    /* Default border for all sides */
+    border-left-width: 4px;
+    /* Left border width override */
     padding: 0.75rem;
     margin-bottom: 0.75rem;
     display: flex;
@@ -145,33 +147,101 @@ option {
     cursor: pointer;
     /* background: #f7f7f7; */
 }
+
 .task-card:hover {
     background: #f0f0f0;
 }
+
 .task-icon {
     flex: 0 0 35px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
+
 .task-content {
     margin-left: 0.75rem;
     flex: 1;
 }
+
 .task-name {
     font-weight: bold;
     font-size: 1rem;
     margin-bottom: 0.25rem;
 }
+
 .task-id {
     font-size: 0.75rem;
     color: #7a7a7a;
 }
+
 .view-button {
-    margin-left: auto; /* Push the button to the right */
+    margin-left: auto;
+    /* Push the button to the right */
     border: none;
     background-color: transparent;
 }
+
 .task-card-selected {
     background: #fafafa;
+}
+
+/* Style for the local overlay */
+.overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    /* Make it cover the full width of the column */
+    height: 100%;
+    /* Make it cover the full height of the column */
+    background: rgba(0, 0, 0, 0.3);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    /* Make sure it's above other content */
+}
+
+/* Style for the settings panel */
+.settings-panel {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    width: 300px;
+    max-width: 90%;
+}
+
+#taskList {
+    padding: 10px;
+    flex-grow: 1 !important;
+    overflow-y: auto !important;
+    width: 100% !important;
+}
+
+.field.is-grouped {
+    padding: 10px;
+    /* Optional: Spacing around the button group */
+}
+
+.subtitle {
+    margin-bottom: 1rem;
+}
+
+#close-btn {
+    float: right;
+}
+
+#task-card-current {
+    border-left-color: #66d1ff;
+}
+
+.side-panel {
+    position: relative;
+    height: 100vh;
+    overflow-x: hidden;
+}
+
+.control-panel-buttons {
+    width: 100%;
 }
