@@ -190,12 +190,10 @@ function updateTaskCard(taskId, state, map, containers) {
 
 function updateActiveTaskCard(taskCard) {
     const taskCards = document.getElementsByClassName("task-card")
-    console.log(taskCards)
     Array.from(taskCards).forEach(element => {
         element.classList.remove("task-card-selected")
         const buttonIndicator = element.querySelector(".view-button")
         if (buttonIndicator != null) {
-            console.log(buttonIndicator)
             buttonIndicator.remove();
         }
     });
