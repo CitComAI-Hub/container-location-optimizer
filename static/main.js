@@ -17,7 +17,7 @@ import { Marker } from './modules/Marker.js';
     if (!fetch) {
         hideLoadingScreen();
     } else {
-        showNotification('Error when fetching data. Please, reload the page to try again.');
+        showNotification('Error when fetching data. Please, reload the page to try again.', false, "is-danger");
         return;
     }
 
@@ -47,7 +47,7 @@ import { Marker } from './modules/Marker.js';
         endOptimizationLoading();
 
         if (taskId.error) {
-            showNotification(solution.error)
+            showNotification(solution.error, false, "is-danger");
             return;
         } else {
             showNotification('Task added to queue', true, "is-success");
