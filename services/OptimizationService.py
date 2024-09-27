@@ -4,8 +4,8 @@ import numpy
 from deap import creator, base, tools, algorithms
 from utils.geographical_operations import get_solution_coords, voronoi_division
 import population_calculator
-
-from services.DataService import DataService
+from redis_client import redis_client
+import pickle
 
 # Configure logging
 logging.basicConfig(
@@ -16,13 +16,26 @@ logger = logging.getLogger(__name__)
 
 
 class OptimizationService:
-    def __init__(self, data_service: DataService) -> None:
+    def __init__(self) -> None:
         logger.info("Initializing OptimizationService")
-        self.data_service = data_service
-        self.individual_size = len(self.data_service.possible_locations)
-        self.max_containers = len(self.data_service.current_containers_layout)
+
+        self.current_containers_layout = redis_client.get("current_layout")
+        self.possible_locations = redis_client.get("possible_locations")
+        self.region = redis_client.get("region")
+
+        # If data is found, deserialize it using pickle
+        if self.current_containers_layout and self.possible_locations and self.region:
+            self.current_containers_layout = pickle.loads(self.current_containers_layout)
+            self.possible_locations = pickle.loads(self.possible_locations)
+            self.region = pickle.loads(self.region)
+        else:
+            logger.error("Could not init OptimizationService: No data available")
+
+        self.individual_size = len(self.possible_locations)
+        self.max_containers = len(self.current_containers_layout)
         self.service_level = 1000
 
+        # TODO: Move params to frontend
         self.not_feasible_penalty = 900000
         self.cxpb = 1  # The probability of mating two individuals.
         self.mutpb = 0.26  # The probability of mutating an individual.
@@ -64,8 +77,8 @@ class OptimizationService:
         self.toolbox.register(
             "select", tools.selTournament, tournsize=self.tournament_size
         )
-        
-        #pop, log, hof = self.ga(self.pop_size, self.cxpb, self.mutpb, self.ngen)
+
+        # pop, log, hof = self.ga(self.pop_size, self.cxpb, self.mutpb, self.ngen)
 
     def ga(self, pop_size, cxpb, mutpb, ngen):
         pop = self.toolbox.population(n=pop_size)
@@ -98,18 +111,17 @@ class OptimizationService:
 
     def eval_fitness(self, solution):
         # Get solution coords
-        solution_coords = get_solution_coords(
-            solution, self.data_service.possible_locations
-        )
+        solution_coords = get_solution_coords(solution, self.possible_locations)
 
-        division = voronoi_division(solution_coords, self.data_service.region)
+        division = voronoi_division(solution_coords, self.region)
 
         # Append population to each voronoi polygon
         scores = []
         for polygon in division:
             try:
                 population = population_calculator.calculate_population(
-                    polygon, self.data_service.raster_file
+                    polygon,
+                    "./data/spain_pop.tif",  # TODO: Create standard way to get population
                 )
                 if population == -1.0:
                     print(polygon)

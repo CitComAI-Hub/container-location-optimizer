@@ -48,7 +48,6 @@ class DataService:
         self.possible_locations = remove_similar_containers(self.possible_locations)
         logger.info(f"Possible locations: {len(self.possible_locations)}")
 
-        self.raster_file = "./data/spain_pop.tif"
 
     def get_possible_locations(self):
         # Load current containers layout
