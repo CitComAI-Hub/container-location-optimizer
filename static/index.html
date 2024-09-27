@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CitCom.ai | Container Location Optimization Demo</title>
+    <link rel="preload" as="image" href="/static/img/logo.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32x32.png">
+    <!-- Bulma-->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <!-- Leaflet-->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- FontAwesome icons-->
+    <script src="https://kit.fontawesome.com/e499d74da8.js" crossorigin="anonymous"></script>
+    <!-- Leaflet awesome markers-->
+    <script
+        src="https://cdn.jsdelivr.net/npm/leaflet.awesome-markers@2.0.5/dist/leaflet.awesome-markers.min.js"></script>
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/leaflet.awesome-markers@2.0.5/dist/leaflet.awesome-markers.min.css">
+    <!-- Custom style -->
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="
+https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js
+"></script>
+    <!-- JS script -->
+    <script type="module" src="/static/main.js"></script>
+</head>
+
+<body>
+    <!-- Notification -->
+    <div id="notification" class="notification is-danger is-hidden">
+        <button id="notification-close" class="delete"></button>
+        <p id="notification-message"></p>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loading" class="columns is-mobile is-centered">
+        <div class="column is-flex is-half has-text-centered loading-column">
+            <div class="is-vcentered-custom">
+                <figure class="image logo">
+                    <img src="/static/img/logo.svg" alt="">
+                </figure>
+                <h5 class="subtitle is-5">Container Location Optimization Demo</h5>
+                <button style="border: none;" class="button is-large is-loading">Loading</button>
+            </div>
+        </div>
+    </div>
+    <!-- Dashboard -->
+    <div id="dashboard" class="columns is-mobile is-centered is-hidden">
+        <!-- Leaflet map -->
+        <div id="map" class="column is-three-quarters has-text-centered"></div>
+        <div class="column">
+            <h4 class="title is-4">Location Optimization</h4>
+            <h5 class="subtitle is-5">Create new layout</h5>
+            <hr>
+            <!-- Control panel -->
+            <!-- <div class="field">
+                <label class="label">Intialization</label>
+                <div class="control has-icons-left">
+                    <div class="select">
+                        <select>
+                            <option value="random" selected>Random</option>
+                            <option value="heuristic">Heuristic</option>
+                        </select>
+                    </div>
+                    <div class="icon is-small is-left">
+                        <i class="fas fa-gears"></i>
+                    </div>
+                </div>
+            </div> -->
+
+            <div class="field">
+                <label class="label">Layout name</label>
+                <p class="control has-icons-left has-icons-right">
+                    <input id="layout-name" class="input" type="text" placeholder="New layout" value="" />
+                    <span class="icon is-small is-left">
+                        <i class="fas fa-file-pen"></i>
+                    </span>
+                </p>
+            </div>
+
+            <div class="field">
+                <label class="label">Maximum containers</label>
+                <p class="control has-icons-left has-icons-right">
+                    <input class="input" type="number" placeholder="352" value="352" />
+                    <span class="icon is-small is-left">
+                        <i class="fas fa-dumpster"></i>
+                    </span>
+                </p>
+            </div>
+
+            <div class="field">
+                <label class="label">Inhabitants per container</label>
+                <p class="control has-icons-left has-icons-right">
+                    <input class="input" type="number" placeholder="1000" value="1000" />
+                    <span class="icon is-small is-left">
+                        <i class="fas fa-people-group"></i>
+                    </span>
+                </p>
+            </div>
+
+            <div class="field">
+                <label class="label">Num. of generations</label>
+                <p class="control has-icons-left has-icons-right">
+                    <input class="input" type="number" placeholder="150" value="150" />
+                    <span class="icon is-small is-left">
+                        <i class="fas fa-rotate"></i>
+                    </span>
+                </p>
+            </div>
+
+            <div class="field is-grouped">
+                <p class="control">
+                    <button id="optimize-button" class="button is-primary">
+                        <span class="icon is-small">
+                            <i class="fas fa-plus"></i>
+                        </span>
+                        <span>Generate New Layout</span>
+                    </button>
+                </p>
+                <!-- <p class="control">
+                    <button id="reset-form" class="button">
+                        Reset
+                    </button>
+                </p> -->
+            </div>
+            <hr>
+            <h5 class="subtitle is-5">Layouts</h5>
+            <!-- <h4 class="title is-4">Queue Panel</h4>
+            <h5 class="subtitle is-5">Tasks status</h5> -->
+            <div id="task-card-current" class="task-card task-card-selected" style="border-left-color: #66d1ff;">
+                <div class="task-icon"><span class="icon has-text-info">
+                        <i class="fas fa-circle-info" aria-hidden="true"></i>
+                    </span></div>
+                <div class="task-content">
+                    <p class="task-name">Current</p>
+                    <div class="tags">
+                        <span class="tag is-light">
+                            <span class="icon-text">
+                                <span class="icon">
+                                    <i class="fas fa-dumpster" aria-hidden="true"></i>
+                                </span>
+                                <span>352</span>
+                            </span>
+                        </span>
+
+                        <span class="tag is-light">
+                            <span class="icon-text">
+                                <span class="icon">
+                                    <i class="fas fa-people-group" aria-hidden="true"></i>
+                                </span>
+                                <span>1000</span>
+                            </span>
+                        </span>
+
+                        <span class="tag is-light">
+                            <span class="icon-text">
+                                <span class="icon">
+                                    <i class="fas fa-rotate" aria-hidden="true"></i>
+                                </span>
+                                <span>150</span>
+                            </span>
+                        </span>
+                    </div>
+                </div>
+                <button id="view-current-button" class="button is-small view-button">
+                    <span class="icon is-small">
+                        <i class="fas fa-eye" aria-hidden="true"></i>
+                    </span>
+                </button>
+            </div>
+            <div id="taskList">
+
+
+
+            </div>
+
+        </div>
+    </div>
+</body>
+
+</html>

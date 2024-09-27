@@ -1,0 +1,177 @@
+html,
+body {
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.column {
+    height: 100vh;
+}
+
+.columns {
+    margin: 0
+}
+
+.modal {
+    z-index: 9999;
+}
+
+select,
+option {
+    text-transform: capitalize;
+}
+
+.loading-column {
+    justify-content: center;
+}
+
+.is-vcentered-custom {
+    margin: 0;
+    position: absolute;
+    top: 50%;
+    -ms-transform: translateY(-50%);
+    transform: translateY(-50%);
+}
+
+.logo {
+    height: auto;
+    margin-bottom: 25px;
+    justify-content: center;
+    display: flex;
+}
+
+.logo img {
+    width: 260px;
+}
+
+.help {
+    font-weight: 500;
+}
+
+.notification {
+    width: 22rem;
+    right: 1%;
+    margin: 1rem;
+    position: absolute;
+    z-index: 9999;
+    box-shadow: 0 0.5em 1em -0.125em rgba(10, 10, 10, 0.1),
+        0 0 0 1px rgba(10, 10, 10, 0.02);
+}
+
+@-webkit-keyframes fadein {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@-moz-keyframes fadein {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fadein {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@-webkit-keyframes fadeout {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
+}
+
+@-moz-keyframes fadeout {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes fadeout {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
+}
+
+.show {
+    opacity: 1;
+    -webkit-animation: fadein 0.3s ease-in alternate;
+    -moz-animation: fadein 0.3s ease-in alternate;
+    animation: fadein 0.3s ease-in alternate;
+}
+
+.hide {
+    opacity: 0;
+    -webkit-animation: fadeout 0.3s ease-in alternate;
+    -moz-animation: fadeout 0.3s ease-in alternate;
+    animation: fadeout 0.3s ease-in alternate;
+}
+
+.task-card {
+    border: 1px solid #e0e0e0; /* Default border for all sides */
+    border-left-width: 4px; /* Left border width override */
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    /* background: #f7f7f7; */
+}
+.task-card:hover {
+    background: #f0f0f0;
+}
+.task-icon {
+    flex: 0 0 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.task-content {
+    margin-left: 0.75rem;
+    flex: 1;
+}
+.task-name {
+    font-weight: bold;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+}
+.task-id {
+    font-size: 0.75rem;
+    color: #7a7a7a;
+}
+.view-button {
+    margin-left: auto; /* Push the button to the right */
+    border: none;
+    background-color: transparent;
+}
+.task-card-selected {
+    background: #fafafa;
+}
