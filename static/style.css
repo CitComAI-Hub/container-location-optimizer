@@ -145,6 +145,7 @@ option {
     align-items: center;
     border-radius: 0.25rem;
     cursor: pointer;
+    /* TODO: pointer only when ready */
     /* background: #f7f7f7; */
 }
 
@@ -244,4 +245,9 @@ option {
 
 .control-panel-buttons {
     width: 100%;
+    display: ruby !important;
+}
+
+.settings-btn-control {
+    margin-top: .75rem;
 }
