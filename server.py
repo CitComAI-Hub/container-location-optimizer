@@ -1,5 +1,5 @@
 # Import tasks queue
-from tasks import optimize
+from tasks import optimize, evaluate_current_solution
 import pickle
 from redis_client import redis_client
 
@@ -9,6 +9,7 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
+
 
 # Serve frontend
 @app.route("/")
@@ -25,13 +26,15 @@ def waste_containers():
     """
     # Retrieve the pickled data from Redis
     current_layout = redis_client.get("current_layout")
+    evaluation = evaluate_current_solution()
 
     # If data is found, deserialize it using pickle
     if current_layout:
         data = pickle.loads(current_layout)
         # Convert to json
         json_data = [entity.to_json() for entity in data]
-        return json_data
+        evaluation["containers"] = json_data
+        return evaluation
     else:
         return jsonify({"error": "No data available"}), 404
 
