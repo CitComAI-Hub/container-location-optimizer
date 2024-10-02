@@ -1,5 +1,7 @@
 from dotenv import load_dotenv
 import os
+import json
+import time
 
 load_dotenv()
 
@@ -7,7 +9,8 @@ from celery import Celery
 from celery.signals import worker_ready
 from services.DataService import DataService
 from services.OptimizationService import OptimizationService
-from utils.geographical_operations import get_solution_coords
+from utils.geographical_operations import get_solution_coords, voronoi_division
+import population_calculator
 from redis_client import redis_client
 import pickle
 
@@ -19,18 +22,91 @@ app.config_from_object("celery_config")
 
 @app.task(bind=True)
 def optimize(self):
+    # Instantiate the OptimizationService
     optimization_service = OptimizationService()
-    cxpb = 1  # The probability of mating two individuals.
-    mutpb = 0.26  # The probability of mutating an individual.
-    ngen = 5  # Number of generations
-    pop_size = 100
+
+    # TODO: Move params to frontend
+    cxpb = 0.9  # The probability of mating two individuals.
+    mutpb = 0.08  # The probability of mutating an individual.
+    ngen = 350  # Number of generations
+    service_level = 1000
+    pop_size = 800
+
+    # Run the genetic algorithm
     pop, log, hof = optimization_service.ga(pop_size, cxpb, mutpb, ngen)
 
-    best_individual = hof.items[0]
+    # Extract the best individual and its fitness
+    best_individual = hof[0]
+    best_fitness = best_individual.fitness.values[0]
+
+    # Convert the best individual to a list of coordinates
     solution_coords = get_solution_coords(
         best_individual, optimization_service.possible_locations
     )
-    return solution_coords
+
+    # Get the Voronoi polygons for the solution
+    voronoi_polygons = voronoi_division(solution_coords, optimization_service.region)
+
+    # Calculate population in Voronoi polygons
+    voronoi_fitness = []
+    for polygon in voronoi_polygons:
+        population = population_calculator.calculate_population(
+            polygon, "./data/spain_pop.tif"
+        )
+
+        # Get score
+        if population >= service_level:
+            score = population - service_level
+        else:
+            score = 0
+        voronoi_fitness.append(score)
+
+    return {
+        "solution_coords": solution_coords,
+        "best_fitness": best_fitness,
+        "voronoi_polygons": voronoi_polygons,
+        "voronoi_fitness": voronoi_fitness,
+    }
+
+
+def evaluate_current_solution():
+    best_individual = [1] * 352
+    optimization_service = OptimizationService()
+
+    best_fitness = optimization_service.eval_fitness(
+        best_individual, optimization_service.current_containers_layout
+    )[0]
+
+    service_level = 1000
+
+    # Convert the best individual to a list of coordinates
+    solution_coords = get_solution_coords(
+        best_individual, optimization_service.current_containers_layout
+    )
+
+    # Get the Voronoi polygons for the solution
+    voronoi_polygons = voronoi_division(solution_coords, optimization_service.region)
+
+    # Calculate population in Voronoi polygons
+    voronoi_fitness = []
+    for polygon in voronoi_polygons:
+        population = population_calculator.calculate_population(
+            polygon, "./data/spain_pop.tif"
+        )
+
+        # Get score
+        if population >= service_level:
+            score = population - service_level
+        else:
+            score = 0
+        voronoi_fitness.append(score)
+
+    return {
+        "solution_coords": solution_coords,
+        "best_fitness": best_fitness,
+        "voronoi_polygons": voronoi_polygons,
+        "voronoi_fitness": voronoi_fitness,
+    }
 
 
 @app.task

@@ -25,7 +25,9 @@ class OptimizationService:
 
         # If data is found, deserialize it using pickle
         if self.current_containers_layout and self.possible_locations and self.region:
-            self.current_containers_layout = pickle.loads(self.current_containers_layout)
+            self.current_containers_layout = pickle.loads(
+                self.current_containers_layout
+            )
             self.possible_locations = pickle.loads(self.possible_locations)
             self.region = pickle.loads(self.region)
         else:
@@ -37,14 +39,14 @@ class OptimizationService:
 
         # TODO: Move params to frontend
         self.not_feasible_penalty = 900000
-        self.cxpb = 1  # The probability of mating two individuals.
-        self.mutpb = 0.26  # The probability of mutating an individual.
-        self.ngen = 330  # Number of generations
-        self.pop_size = 700
-        self.tournament_size = 6
-        self.indpb_mate = 0.7000000000000001  # Independent probability for each attribute to be exchanged
+        self.cxpb = 0.9  # The probability of mating two individuals.
+        self.mutpb = 0.08  # The probability of mutating an individual.
+        self.ngen = 350  # Number of generations
+        self.pop_size = 800
+        self.tournament_size = 4
+        self.indpb_mate = 0.30  # Independent probability for each attribute to be exchanged
         self.indpb_mutate = (
-            0.05  # Independent probability for each attribute to be flipped.
+            0.43  # Independent probability for each attribute to be flipped.
         )
 
         # Types
@@ -109,9 +111,13 @@ class OptimizationService:
             individual[i] = 1
         return creator.Individual(individual)
 
-    def eval_fitness(self, solution):
+    def eval_fitness(self, solution, layout=None):
+
+        if layout is None:
+            layout = self.possible_locations
+
         # Get solution coords
-        solution_coords = get_solution_coords(solution, self.possible_locations)
+        solution_coords = get_solution_coords(solution, layout)
 
         division = voronoi_division(solution_coords, self.region)
 

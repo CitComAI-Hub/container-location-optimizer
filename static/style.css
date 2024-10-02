@@ -55,7 +55,6 @@ option {
     right: 1%;
     margin: 1rem;
     position: absolute;
-    z-index: 9999;
     box-shadow: 0 0.5em 1em -0.125em rgba(10, 10, 10, 0.1),
         0 0 0 1px rgba(10, 10, 10, 0.02);
 }
@@ -121,6 +120,7 @@ option {
 }
 
 .show {
+    z-index: 9999;
     opacity: 1;
     -webkit-animation: fadein 0.3s ease-in alternate;
     -moz-animation: fadein 0.3s ease-in alternate;
@@ -128,6 +128,7 @@ option {
 }
 
 .hide {
+    z-index: -1;
     opacity: 0;
     -webkit-animation: fadeout 0.3s ease-in alternate;
     -moz-animation: fadeout 0.3s ease-in alternate;
@@ -136,17 +137,14 @@ option {
 
 .task-card {
     border: 1px solid #e0e0e0;
-    /* Default border for all sides */
-    border-left-width: 4px;
-    /* Left border width override */
     padding: 0.75rem;
     margin-bottom: 0.75rem;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     border-radius: 0.25rem;
+    transition: background 0.3s ease-in-out;
     cursor: pointer;
-    /* TODO: pointer only when ready */
-    /* background: #f7f7f7; */
 }
 
 .task-card:hover {
@@ -171,20 +169,26 @@ option {
     margin-bottom: 0.25rem;
 }
 
-.task-id {
-    font-size: 0.75rem;
-    color: #7a7a7a;
-}
-
-.view-button {
-    margin-left: auto;
-    /* Push the button to the right */
-    border: none;
-    background-color: transparent;
-}
-
 .task-card-selected {
-    background: #fafafa;
+    border-left-color: #0f90be;
+    border-left-width: 4px;
+}
+
+.task-card-selected .task-name {
+    margin-left: -3px;
+}
+
+.task-card-selected .tags {
+    margin-left: -3px;
+}
+
+.task-increment {
+    font-size: 0.85rem;
+    color: green;
+    margin-right: 1.5rem;
+}
+.task-increment .fas{
+    margin-right: 0.25rem;
 }
 
 /* Style for the local overlay */
@@ -233,10 +237,6 @@ option {
     float: right;
 }
 
-#task-card-current {
-    border-left-color: #66d1ff;
-}
-
 .side-panel {
     position: relative;
     height: 100vh;
@@ -246,8 +246,87 @@ option {
 .control-panel-buttons {
     width: 100%;
     display: ruby !important;
+    text-align: center;
 }
 
 .settings-btn-control {
     margin-top: .75rem;
+}
+
+.tags {
+    margin-top: 0.5rem;
+    /* Added margin to separate tags */
+    overflow: hidden;
+    transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+    /* Animate showing/hiding */
+    max-height: 0;
+    /* Hide initially */
+    opacity: 0;
+}
+
+details[open] .tags {
+    max-height: 100px;
+    /* Show when open */
+    opacity: 1;
+}
+
+summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    list-style: none;
+}
+
+summary::-webkit-details-marker {
+    display: none;
+    /* Hide the default disclosure icon */
+}
+
+.icon-chevron {
+    transition: transform 0.3s ease-in-out;
+    /* Animate chevron rotation */
+}
+
+details[open] .icon-chevron {
+    transform: rotate(180deg);
+    /* Rotate 180 degrees when open */
+}
+
+.hidden {
+    display: none;
+}
+
+/* TODO: Move to a better place*/
+/* Override the primary button and its states */
+.button.is-primary {
+    background-color: #0f90be !important;
+    border-color: #0f90be !important;
+    color: #fff !important;
+}
+
+.button.is-primary:hover,
+.button.is-primary.is-hovered {
+    background-color: #0b7aa1 !important;
+    border-color: #0b7aa1 !important;
+    color: #fff !important;
+}
+
+.button.is-primary:active,
+.button.is-primary.is-active {
+    background-color: #0a6b8c !important;
+    border-color: #0a6b8c !important;
+    color: #fff !important;
+}
+
+.button.is-primary:focus,
+.button.is-primary.is-focused {
+    background-color: #0f90be !important;
+    border-color: #0f90be !important;
+    box-shadow: 0 0 0 0.125em rgba(15, 144, 190, 0.25) !important;
+}
+
+.button.is-primary:focus:not(:active),
+.button.is-primary.is-focused:not(:active) {
+    background-color: #0f90be !important;
+    border-color: #0f90be !important;
 }

@@ -8,7 +8,7 @@ export class Optimizer {
 
     async startTask() {
         const taskId = await this.httpClient.get('start_task');
-        return taskId.task_id;
+        return taskId;
     }
 
     async getTask(taskId) {

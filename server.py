@@ -10,7 +10,6 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-
 # Serve frontend
 @app.route("/")
 def home():
@@ -33,10 +32,10 @@ def waste_containers():
         data = pickle.loads(current_layout)
         # Convert to json
         json_data = [entity.to_json() for entity in data]
-        evaluation["containers"] = json_data
-        return evaluation
-    else:
-        return jsonify({"error": "No data available"}), 404
+        evaluation["containers"] = json_data    
+    return evaluation
+    # else:
+    #     return jsonify({"error": "No data available"}), 404
 
 
 @app.route("/start_task")

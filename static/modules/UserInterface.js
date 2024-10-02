@@ -10,7 +10,8 @@ const dashboard = document.querySelector("#dashboard");
 //const resetFormButton = document.querySelector("#reset-form");
 const optimizeButton = document.querySelector('#optimize-button');
 const layoutName = document.querySelector('#layout-name');
-const viewCurrentLayoutButton = document.querySelector('#task-card-current');
+const viewCurrentLayout = document.querySelector('#task-card-current');
+const taskList = document.querySelector("#taskList");
 
 // Notification
 const notification = document.querySelector("#notification");
@@ -107,21 +108,27 @@ function addTaskCardToQueue(taskId, layoutName, statusMsg, taskNumber) {
         layoutName = `Layout ${taskNumber}`;
     }
 
-    const taskCard = `<div id="task-card-${taskId}" class="task-card" style="border-left-color: #ffdd57;">
-                    <div class="task-icon">
-                        <span class="icon has-text-warning">
-                            <i class="fas fa-spinner fa-spin"></i>
+    const taskCard = `<details id="task-card-${taskId}" class="task-card">
+                    <summary onclick="event.preventDefault()">
+                        <span class="task-content icon-text">
+                            <span class="task-name">${layoutName}</span>
+                            <span class="icon has-text-warning task-icon">
+                                <i class="fas fa-spinner fa-spin"></i>
+                            </span>
                         </span>
-                    </div>
-                    <div class="task-content">
-                        <p class="task-name">${layoutName}</p>
-                        <div class="tags">
+                        <span class="task-increment">
+                            
+                        </span>
+                        <span class="icon is-small icon-chevron hidden">
+                            <i class="fas fa-chevron-down"></i>
+                        </span>
+                    </summary>
+                    <div class="tags">
                             <span class="tag is-warning task-status">${statusMsg}</span>
-
                             <span class="tag is-light">
                                 <span class="icon-text">
                                     <span class="icon">
-                                        <i class="fas fa-dumpster"></i>
+                                        <i class="fas fa-dumpster" aria-hidden="true"></i>
                                     </span>
                                     <span>352</span>
                                 </span>
@@ -130,7 +137,7 @@ function addTaskCardToQueue(taskId, layoutName, statusMsg, taskNumber) {
                             <span class="tag is-light">
                                 <span class="icon-text">
                                     <span class="icon">
-                                        <i class="fas fa-people-group"></i>
+                                        <i class="fas fa-people-group" aria-hidden="true"></i>
                                     </span>
                                     <span>1000</span>
                                 </span>
@@ -139,34 +146,35 @@ function addTaskCardToQueue(taskId, layoutName, statusMsg, taskNumber) {
                             <span class="tag is-light">
                                 <span class="icon-text">
                                     <span class="icon">
-                                        <i class="fas fa-rotate"></i>
+                                        <i class="fas fa-rotate" aria-hidden="true"></i>
                                     </span>
                                     <span>150</span>
                                 </span>
                             </span>
-                        </div>
                     </div>
-                </div>`
+                </details>`;
+
     // Create a temporary container to hold the HTML string
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = taskCard;
-    document.querySelector("#taskList").appendChild(tempDiv.firstChild);
+    taskList.appendChild(tempDiv.firstChild);
 }
 
-function updateTaskCard(taskId, state, map, containers) {
-    const taskCard = document.querySelector(`#task-card-${taskId}`);
+function updateTaskCard(task, map, increment) {
+    //.task_id, task.state, map, task.containers
+    const taskCard = document.querySelector(`#task-card-${task.task_id}`);
     const taskIcon = taskCard.querySelector('.task-icon');
-    const taskContent = taskCard.querySelector('.task-content');
-    const taskStatus = taskContent.querySelector('.task-status');
+    const taskStatus = taskCard.querySelector('.task-status');
+    const taskToggleButton = taskCard.querySelector('.icon-chevron');
+    const taskIncrement = taskCard.querySelector('.task-increment');
+    taskIncrement.innerHTML = `${increment}%<i class="fas fa-arrow-up" aria-hidden="true"></i>`;
 
-    if (state === "SUCCESS") {
-        // Change border color to green
-        taskCard.style.borderLeftColor = "#23d160";
 
+    if (task.state === "SUCCESS") {
         // Change icon to check
-        taskIcon.innerHTML = `<span class="icon has-text-success">
-            <i class="fas fa-check"></i>
-        </span>`;
+        taskIcon.innerHTML = `<i class="fas fa-circle-check"></i></span>`;
+        taskIcon.classList.remove('has-text-warning');
+        taskIcon.classList.add('has-text-success');
 
         // Change status message to success
         taskStatus.classList.remove('is-warning');
@@ -174,16 +182,30 @@ function updateTaskCard(taskId, state, map, containers) {
         taskStatus.innerHTML = "Completed";
 
 
-        taskCard.addEventListener('click', function () {
-            updateActiveTaskCard(taskCard)
-            map.addContainers(containers);
+        taskToggleButton.classList.remove('hidden');
+        taskToggleButton.addEventListener('click', (event) => {
+            taskCard.open = !taskCard.open; // Toggle the open state of the <details> element            
         });
 
-    } else if (state === "FAILURE") {
-        taskCard.style.borderLeftColor = "#ff3860";
-        taskIcon.innerHTML = `<span class="icon has-text-danger">
-            <i class="fas fa-exclamation-triangle"></i>
-        </span>`;
+
+        // Add click event to task card
+        taskCard.addEventListener('click', (event) => {
+            const fromToggleButton = event.target == taskToggleButton.querySelector('i');
+
+            // Only update the map if the task card was clicked
+            if (!fromToggleButton) {
+                updateActiveTaskCard(taskCard)
+                map.addContainers(task.containers);
+
+                map.addVoronois(task.result.voronoi_polygons, task.result.voronoi_fitness);
+            }
+
+        });
+
+    } else if (task.state === "FAILURE") {
+        taskIcon.innerHTML = `<i class="fas fa-exclamation-triangle"></i>`;
+        taskStatus.classList.remove('is-warning');
+        taskStatus.classList.add('is-danger');
         taskStatus.innerHTML = "Failure";
     }
 }
@@ -192,18 +214,8 @@ function updateActiveTaskCard(taskCard) {
     const taskCards = document.getElementsByClassName("task-card")
     Array.from(taskCards).forEach(element => {
         element.classList.remove("task-card-selected")
-        const buttonIndicator = element.querySelector(".view-button")
-        if (buttonIndicator != null) {
-            buttonIndicator.remove();
-        }
     });
     taskCard.classList.add("task-card-selected")
-    // Add view button
-    taskCard.innerHTML += `<button class="button is-small view-button">
-            <span class="icon is-small">
-                <i class="fas fa-eye"></i>
-            </span>
-        </button>`;
 }
 
-export { hideLoadingScreen, optimizeButton, showNotification, initOptimizationLoading, endOptimizationLoading, addTaskCardToQueue, updateTaskCard, layoutName, viewCurrentLayoutButton, updateActiveTaskCard }
+export { hideLoadingScreen, optimizeButton, showNotification, initOptimizationLoading, endOptimizationLoading, addTaskCardToQueue, updateTaskCard, layoutName, viewCurrentLayout, updateActiveTaskCard }

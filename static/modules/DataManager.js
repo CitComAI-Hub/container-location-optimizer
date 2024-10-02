@@ -4,23 +4,23 @@ import { WasteContainer } from './WasteContainer.js';
 export class DataManager {
     queue = [];
     wasteContainers = [];
-    filteredWasteContainers = [];
-
+    currentLayout = [];
     constructor() {
         this.httpClient = new HttpClient();
     }
 
     async fetchData() {
         // Fetch data
-        let wasteContainersData = await this.httpClient.get('/data/current');
-
+        let result = await this.httpClient.get('/data/current');
+        this.currentLayout = result
+        let wasteContainersData = result.containers
         // Check network error
         const error = wasteContainersData.error
 
         if (error) {
             return { error: error };
         }
-
+        console.log(wasteContainersData)
         // Parse each JSON string into an object and then filter
         wasteContainersData = wasteContainersData.map(item => {
             try {
