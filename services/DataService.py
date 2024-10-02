@@ -3,6 +3,7 @@ from utils.geographical_operations import remove_similar_containers
 from ngsildclient import Client, AsyncClient
 import geopandas as gpd
 from shapely import Point
+import pysmartdatamodels as sdm
 
 # Configure logging
 logging.basicConfig(
@@ -72,9 +73,9 @@ class DataService:
         return current_layout
 
     def get_WasteContainers(self, q=None, gq=None):
-        # Read from .env file WasteContainers context
-        # TODO: Automatically get entity context by using pysmartdatamodels
-        waste_containers_context = os.environ.get("WASTECONTAINERS_CONTEXT")
+        # WasteContainers context
+        subject = "dataModel.WasteManagement"
+        waste_containers_context = sdm.create_context(subject)
 
         # Get all WasteContainers
         with Client(self.endpoint_cb, self.endpoint_cb_port) as client:
