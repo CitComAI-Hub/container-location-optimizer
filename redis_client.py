@@ -1,5 +1,7 @@
-# TODO: Use env variables to store the Redis connection details
+import os
 import redis
 
-# Centralized Redis client
-redis_client = redis.StrictRedis(host="localhost", port=6379, db=0)
+redis_endpoint = os.environ.get("ENDPOINT_REDIS")
+
+# Redis client
+redis_client = redis.StrictRedis(host=redis_endpoint, port=6379, db=0)
