@@ -4,7 +4,7 @@ import numpy
 from deap import creator, base, tools, algorithms
 from utils.geographical_operations import get_solution_coords, voronoi_division
 import population_calculator
-from redis_client import redis_client
+from redis_client import redis_client, get_data_from_redis
 import pickle
 
 # Configure logging
@@ -18,33 +18,50 @@ logger = logging.getLogger(__name__)
 class OptimizationService:
     def __init__(self) -> None:
         logger.info("Initializing OptimizationService")
+        self.redis_client = redis_client
+        self.current_containers_layout = None
+        self.possible_locations = None
+        self.region = None
+        self.is_initialized = self.initialize()
 
-        self.current_containers_layout = redis_client.get("current_layout")
-        self.possible_locations = redis_client.get("possible_locations")
-        self.region = redis_client.get("region")
+    def initialize(self):
+        try:
+            self.load_data_from_redis()
+            return self.validate_data()
+        except Exception as e:
+            logger.error(f"Could not initialize OptimizationService: {e}")
+            return False
 
-        # If data is found, deserialize it using pickle
-        if self.current_containers_layout and self.possible_locations and self.region:
-            self.current_containers_layout = pickle.loads(
-                self.current_containers_layout
-            )
-            self.possible_locations = pickle.loads(self.possible_locations)
-            self.region = pickle.loads(self.region)
-        else:
-            logger.error("Could not init OptimizationService: No data available")
+    def load_data_from_redis(self):
+        # Read data from Redis
+        self.current_containers_layout = get_data_from_redis("current_layout")
+        self.possible_locations = get_data_from_redis("possible_locations")
+        self.region = get_data_from_redis("region")
 
         self.individual_size = len(self.possible_locations)
         self.max_containers = len(self.current_containers_layout)
-        self.service_level = 1000
 
+    def validate_data(self):
+        if all([self.current_containers_layout, self.possible_locations, self.region]):
+            return True
+        else:
+            logger.error(
+                "Could not init OptimizationService: Incomplete data available"
+            )
+            return False
+
+    def ga(self, pop_size, cxpb, mutpb, ngen):
         # TODO: Move params to frontend
+        self.service_level = 1000
         self.not_feasible_penalty = 900000
         self.cxpb = 0.9  # The probability of mating two individuals.
         self.mutpb = 0.08  # The probability of mutating an individual.
         self.ngen = 350  # Number of generations
         self.pop_size = 800
         self.tournament_size = 4
-        self.indpb_mate = 0.30  # Independent probability for each attribute to be exchanged
+        self.indpb_mate = (
+            0.30  # Independent probability for each attribute to be exchanged
+        )
         self.indpb_mutate = (
             0.43  # Independent probability for each attribute to be flipped.
         )
@@ -79,10 +96,7 @@ class OptimizationService:
         self.toolbox.register(
             "select", tools.selTournament, tournsize=self.tournament_size
         )
-
-        # pop, log, hof = self.ga(self.pop_size, self.cxpb, self.mutpb, self.ngen)
-
-    def ga(self, pop_size, cxpb, mutpb, ngen):
+        # ----------------
         pop = self.toolbox.population(n=pop_size)
         hof = tools.HallOfFame(1)
         stats = tools.Statistics(lambda ind: ind.fitness.values)
