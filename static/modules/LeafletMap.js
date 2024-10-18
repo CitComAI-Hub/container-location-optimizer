@@ -90,19 +90,6 @@ export class LeafletMap {
     }
 
     // TODO: Move to a better place
-    // getColor(value) {
-    //     if (value >= 1000) {
-    //         return 'rgb(255, 0, 0)'; // Red for values >= 1000
-    //     } else if (value <= 0) {
-    //         return 'rgb(0, 255, 0)'; // Green for values <= 0
-    //     } else {
-    //         // Calculate gradient color between red and green
-    //         let green = Math.round((255 * value) / 1000);  // Calculate green component (0 to 255)
-    //         let red = 255 - green;                        // Calculate red component (255 to 0)
-    //         return `rgb(${red}, ${green}, 0)`;             // Blue component is always 0
-    //     }
-    // }
-
     getColor(value) {
         // Ensure value is clamped between 0 and 1000
         value = Math.max(0, Math.min(value, 1000));
