@@ -61,7 +61,8 @@ function metricRows(metrics, baseline) {
             const change = (value - baseline[key]) / baseline[key];
             const delta = document.createElement("span");
             delta.className = "delta";
-            delta.textContent = `${change > 0 ? "+" : ""}${(change * 100).toFixed(1)} %`;
+            const percent = Math.round(change * 1000) / 10; // one decimal, no "-0.0"
+            delta.textContent = percent === 0 ? "=" : `${percent > 0 ? "+" : ""}${percent.toFixed(1)} %`;
             dd.appendChild(delta);
         }
         fragment.append(dt, dd);
