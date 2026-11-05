@@ -28,7 +28,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 10001 }
       containers:
         - name: app
-          image: ghcr.io/citcomai-hub/optimizing-container-location:v1.0
+          image: ghcr.io/citcomai-hub/container-location-optimizer:v1.0
           ports: [{ containerPort: 5000 }]
           env:
             - { name: NGSI_LD_URL, value: "https://apisix-<provider>.citcom-vrain-dataspace.eu/lepus" }

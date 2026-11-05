@@ -1,5 +1,5 @@
 name: Publish image
-# Builds and publishes ghcr.io/<owner>/optimizing-container-location:<tag> when a v*
+# Builds and publishes ghcr.io/<owner>/container-location-optimizer:<tag> when a v*
 # tag is pushed, e.g. git tag v1.0 && git push origin v1.0
 "on":
   push:

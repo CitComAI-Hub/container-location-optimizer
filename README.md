@@ -1,4 +1,4 @@
-# Optimizing Container Location
+# Container Location Optimizer
 
 AI service that proposes **where to place a city's waste containers** so that every container serves a fair share of people
 and people walk less. It reads the city's `WasteContainer` entities (NGSI-LD,
@@ -129,7 +129,7 @@ Tests and lint: `pytest` and `ruff check . && ruff format --check .`.
 
 ## Release
 
-A `v*` tag builds and publishes `ghcr.io/citcomai-hub/optimizing-container-location:<tag>`:
+A `v*` tag builds and publishes `ghcr.io/citcomai-hub/container-location-optimizer:<tag>`:
 
 ```console
 git tag v1.0 && git push origin v1.0
