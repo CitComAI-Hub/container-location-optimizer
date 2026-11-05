@@ -62,7 +62,7 @@ API (relative paths, so the service can live under a prefix such as `/container-
 | `GET /api/layout?service_level=1000` | The current layout: metrics and Voronoi cells (GeoJSON) |
 | `POST /api/jobs` | New optimisation: `{name, containers, service_level, generations, population_size}` → `202` (or `429` if the queue is full) |
 | `GET /api/jobs`, `GET /api/jobs/<id>` | Jobs with their progress; one job with its result |
-| `DELETE /api/jobs/<id>` | Cancels a queued or running job |
+| `DELETE /api/jobs/<id>` | Cancels a queued or running job (`200`); deletes a finished one (`204`) |
 | `GET /healthz` | Liveness |
 
 ## Running on a shared server
@@ -75,7 +75,8 @@ The algorithm is CPU-bound, so it must not take over the node:
 - A job stops itself at `JOB_TIMEOUT` and returns the best layout found so far. If it is still running 30 s later, the
   process is killed. Users can cancel jobs.
 - The web server stays responsive while a job runs. Data and jobs live in the memory of a single process, so run **one
-  replica**. Jobs are lost on restart.
+  replica**. Jobs are lost on restart, only the last `KEPT_JOBS` (50) finished ones are kept, and every user sees (and
+  can delete) the same list.
 
 The [example manifest](./deploy/kubernetes/container-location.yaml) requests 250m CPU / 384 MiB and is limited to 1.5 CPU /
 1 GiB. Measured use while a job runs: one core and about 280 MiB.

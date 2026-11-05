@@ -10,7 +10,8 @@ Each job runs in its own child process:
   found; if it is still running ``GRACE`` seconds later, the process is killed,
 - a job can be cancelled while queued or running (the process is killed).
 
-Jobs live in memory: a restart forgets them. That is acceptable for a demo
+Jobs live in memory: a restart forgets them, and only the last ``KEPT_JOBS``
+finished ones are kept. Users can delete finished jobs. That is acceptable for a demo
 service with one replica; a shared store would be needed to scale out.
 """
 
@@ -138,6 +139,18 @@ class JobQueue:
             elif job.state == "running":
                 job.cancel_requested = True
             return job
+
+    def delete(self, job_id: str) -> bool | None:
+        """Forget a finished job. None if there is no such job, False if it is
+        still queued or running (cancel it first)."""
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                return None
+            if job.state in ("queued", "running"):
+                return False
+            del self._jobs[job_id]
+            return True
 
     # -- internals ---------------------------------------------------- #
     def _prune(self) -> None:

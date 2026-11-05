@@ -29,5 +29,6 @@ export const api = {
     jobs: () => request("api/jobs"),
     job: (id) => request(`api/jobs/${encodeURIComponent(id)}`),
     createJob: (params) => request("api/jobs", { method: "POST", body: JSON.stringify(params) }),
-    cancelJob: (id) => request(`api/jobs/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    // Cancels a queued or running job; deletes a finished one
+    deleteJob: (id) => request(`api/jobs/${encodeURIComponent(id)}`, { method: "DELETE" }),
 };

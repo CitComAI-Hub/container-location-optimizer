@@ -49,3 +49,17 @@ def test_create_and_cancel_a_job(client):
 def test_not_ready():
     app = server.create_app(State(Settings(), data_source=FakeSource([])), start=False)
     assert app.test_client().get("/api/layout").status_code == 503
+
+
+def test_delete_cancels_an_active_job_then_deletes_it(client):
+    job = client.post("/api/jobs", json={"generations": 1000}).get_json()
+    assert client.delete(f"/api/jobs/{job['id']}").get_json()["state"] in ("cancelled", "running")
+    for _ in range(100):
+        if client.get(f"/api/jobs/{job['id']}").get_json()["state"] == "cancelled":
+            break
+        import time
+
+        time.sleep(0.1)
+    assert client.delete(f"/api/jobs/{job['id']}").status_code == 204
+    assert client.get(f"/api/jobs/{job['id']}").status_code == 404
+    assert client.delete(f"/api/jobs/{job['id']}").status_code == 404

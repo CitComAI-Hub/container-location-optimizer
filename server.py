@@ -116,8 +116,13 @@ def get_job(job_id: str):
 
 
 @app.route("/api/jobs/<job_id>", methods=["DELETE"])
-def cancel_job(job_id: str):
-    job = jobs.cancel(job_id)
+def cancel_or_delete_job(job_id: str):
+    """Cancels a queued or running job (200, the job); deletes a finished one (204)."""
+    job = jobs.get(job_id)
     if job is None:
         return _error("No such job", 404)
-    return job.view()
+    if job.state in ("queued", "running"):
+        return jobs.cancel(job_id).view()
+    if jobs.delete(job_id) is None:
+        return _error("No such job", 404)
+    return "", 204

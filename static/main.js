@@ -104,12 +104,15 @@ function jobCard(job) {
         card.innerHTML = `<header><span class="layout-name"></span><span class="layout-state"></span></header>
             <progress class="progress is-small is-link" max="1" value="0"></progress>
             <dl class="metrics"></dl>
-            <button class="button is-text is-small cancel" type="button">Cancel</button>`;
+            <button class="button is-text is-small job-action" type="button"></button>`;
         card.querySelector(".layout-name").textContent = job.name;
-        card.querySelector(".cancel").addEventListener("click", async (event) => {
+        card.querySelector(".job-action").addEventListener("click", async (event) => {
             event.stopPropagation();
+            const active = ["queued", "running"].includes(card.dataset.state);
+            if (!active && !confirm(`Delete "${job.name}"? It is deleted for every user.`)) return;
             try {
-                await api.cancelJob(job.id);
+                await api.deleteJob(job.id);
+                if (!active) removeCard(job.id);
             } catch (error) {
                 notify(error.message);
             }
@@ -131,9 +134,18 @@ function jobCard(job) {
     card.querySelector(".layout-state").title = state;
     progress.value = job.state === "done" ? 1 : generation / params.generations;
     progress.classList.toggle("is-hidden", !["queued", "running"].includes(job.state));
-    card.querySelector(".cancel").classList.toggle("is-hidden", !["queued", "running"].includes(job.state));
+    const active = ["queued", "running"].includes(job.state);
+    card.querySelector(".job-action").textContent = active ? "Cancel" : "Delete";
     card.classList.toggle("is-done", job.state === "done");
     return card;
+}
+
+function removeCard(id) {
+    const card = cards.get(id);
+    if (!card) return;
+    card.remove();
+    cards.delete(id);
+    if (selected === id) showCurrent().catch((e) => notify(e.message));
 }
 
 async function openJob(id) {
@@ -154,6 +166,9 @@ async function pollJobs() {
     while (true) {
         try {
             const { jobs } = await api.jobs();
+            // jobs deleted by someone else, dropped by the server or lost in a restart
+            const ids = new Set(jobs.map((job) => job.id));
+            for (const id of [...cards.keys()]) if (!ids.has(id)) removeCard(id);
             for (const job of jobs) {
                 const card = jobCard(job);
                 const wasDone = card.dataset.state === "done";

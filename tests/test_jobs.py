@@ -46,3 +46,22 @@ def test_queue_is_bounded(problem):
     assert queue.get(waiting.id).state == "cancelled"
     queue.cancel(running.id)
     wait(queue, running.id, {"cancelled"})
+
+
+def test_finished_jobs_can_be_deleted_but_not_active_ones(problem):
+    queue = JobQueue(workers=1, max_queued=2, timeout=60, nice=0)
+    done = queue.submit(problem, Parameters(containers=5, generations=2, population_size=10))
+    wait(queue, done.id, {"done"})
+    running = queue.submit(
+        problem, Parameters(containers=5, generations=100_000, population_size=20)
+    )
+    wait(queue, running.id, {"running"})
+
+    assert queue.delete(running.id) is False
+    assert queue.delete(done.id) is True
+    assert queue.get(done.id) is None
+    assert queue.delete(done.id) is None
+
+    queue.cancel(running.id)
+    wait(queue, running.id, {"cancelled"})
+    assert queue.delete(running.id) is True
