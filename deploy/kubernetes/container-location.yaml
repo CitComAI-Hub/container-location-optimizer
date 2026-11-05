@@ -32,8 +32,10 @@ spec:
           ports: [{ containerPort: 5000 }]
           env:
             - { name: NGSI_LD_URL, value: "https://apisix-<provider>.citcom-vrain-dataspace.eu/lepus" }
-            - { name: TARGET_ATTRIBUTE, value: storedWasteKind }
-            - { name: TARGET_VALUES, value: oil }
+            # VLCi through Lepus: only sensorised containers, no storedWasteKind
+            - { name: NGSILD_TENANT, value: tef_vlci }
+            - { name: TARGET_ID_PATTERN, value: ":aceiteContenedores" }
+            - { name: CANDIDATES, value: both }
             - { name: DS_ISSUER_URL, value: "https://keycloak-<consumer>.citcom-vrain-dataspace.eu/realms/provider" }
             - { name: DS_USERNAME, value: "<consumer user>" }
             - { name: DS_VERIFIER_URL, value: "https://verifier-<provider>.citcom-vrain-dataspace.eu/services/<service>" }

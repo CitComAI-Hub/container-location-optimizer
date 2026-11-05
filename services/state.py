@@ -43,7 +43,9 @@ class State:
         if self._data_source is None:
             self._data_source = DataSource(s)
         containers = self._data_source.containers()
-        problem = Problem(self.region, containers, self.population, s.candidate_spacing)
+        problem = Problem(
+            self.region, containers, self.population, s.candidate_spacing, s.candidates
+        )
         with self._lock:
             self.problem = problem
             self._layouts = {}

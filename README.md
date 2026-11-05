@@ -14,6 +14,11 @@ It is a CitCom service at two integration levels, like the [MIAIS](https://githu
 | 1 | Any NGSI-LD broker (Orion-LD, Scorpio, a TEF platform) | `NGSI_LD_URL` |
 | 2 | A **data space**: the provider's broker, through its connector | `NGSI_LD_URL` + `DS_*` |
 
+Through the data space the València City Council publishes the containers of its VLCi platform, which only has the ones
+with a sensor (543, 158 of them for oil in the city) and no `storedWasteKind`. There the service uses
+`TARGET_ID_PATTERN=:aceiteContenedores` and `CANDIDATES=both`. With that data, the default run takes about 45 s and
+lowers the mean distance from 379 m to 204 m, and the 95th percentile from 1,193 m to 379 m.
+
 Nothing in the code is specific to Valencia. Another city needs only its NGSI-LD endpoint, a GeoJSON of the area and,
 if its containers are told apart by another attribute, `TARGET_ATTRIBUTE` / `TARGET_VALUES`. The population grid covers
 the whole world.
@@ -86,6 +91,8 @@ Environment variables (see [`.env.example`](./.env.example)):
 | `CONTAINER_TYPE` | `WasteContainer` | Entity type of the containers |
 | `NGSI_LD_CONTEXT` | Smart Data Models, WasteManagement | `@context` sent as the `Link` header. Set it empty to send none |
 | `TARGET_ATTRIBUTE`, `TARGET_VALUES` | all containers | Containers whose layout is optimised, e.g. `storedWasteKind` = `oil` (comma-separated values, case-insensitive). The rest are only candidate sites |
+| `TARGET_ID_PATTERN` | | Also, or instead, a regular expression on the entity id (like the NGSI-LD `idPattern`), for platforms where the kind of waste is only in the id |
+| `CANDIDATES` | `containers` | Candidate sites: `containers` (every container's site), `population` (centres of the populated pixels) or `both`. Use `population` or `both` when the platform only knows a few containers |
 | `REGION` | `data/valencia_region.geojson` | Area of study: GeoJSON file or URL with one or more polygons |
 | `POPULATION` | `ghs` | `ghs` (GHS-POP R2023A, 3″, read remotely from the JRC) or the path/URL of any population GeoTIFF, in any CRS |
 | `GHS_EPOCH` | `2025` | GHS-POP epoch: 1975–2030, every 5 years |

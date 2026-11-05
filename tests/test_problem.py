@@ -63,3 +63,26 @@ def test_ga_stops_at_the_time_limit(problem):
     )
     _, history = GeneticAlgorithm(problem, params).run()
     assert history[-1].get("stopped") == "time limit"
+
+
+def test_population_pixels_as_candidates(region, containers, population):
+    from services.problem import Problem
+
+    only_targets = [c for c in containers if c.target]
+    with_pixels = Problem(region, only_targets, population, 20, candidates="population")
+    assert with_pixels.size > 100  # 5 current sites + the 20 x 20 pixels, spaced
+    assert np.allclose(
+        with_pixels.candidates_lonlat[:5],
+        np.unique(np.round([(c.lon, c.lat) for c in only_targets], 7), axis=0),
+    )
+    without = Problem(region, only_targets, population, 20, candidates="containers")
+    assert without.size == 5
+
+
+def test_unknown_candidate_source_is_rejected():
+    import pytest
+
+    from services.config import Settings
+
+    with pytest.raises(ValueError):
+        Settings(candidates="grid")

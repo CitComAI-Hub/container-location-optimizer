@@ -30,6 +30,9 @@ SDM_WASTE_CONTEXT = (
 )
 
 
+CANDIDATE_SOURCES = ("containers", "population", "both")
+
+
 @dataclass(frozen=True)
 class Settings:
     # NGSI-LD data (level 1: any broker; level 2: a connector, with DS_* set)
@@ -38,14 +41,20 @@ class Settings:
     container_type: str = "WasteContainer"
     # JSON-LD @context of the data model, sent as the Link header ("" = none)
     context: str = SDM_WASTE_CONTEXT
-    # Containers whose layout is optimised (e.g. storedWasteKind=oil). Empty: all.
+    # Containers whose layout is optimised: by attribute (e.g.
+    # storedWasteKind=oil) and/or by a regular expression on the id (like the
+    # NGSI-LD idPattern). Neither set: all.
     target_attribute: str | None = None
     target_values: tuple[str, ...] = ()
+    target_id_pattern: str | None = None
     # Area of study and population
     region: str = "data/valencia_region.geojson"
     population: str = "ghs"
     ghs_epoch: int = 2025
     cache_dir: str = "cache"
+    # Candidate sites: "containers" (sites of every container), "population"
+    # (centres of the populated pixels) or "both"
+    candidates: str = "containers"
     candidate_spacing: float = 50.0
     data_refresh: int = 3600
     # Jobs: how much of the server an optimisation may use
@@ -57,6 +66,10 @@ class Settings:
     max_population_size: int = 300
     kept_jobs: int = 50
 
+    def __post_init__(self):
+        if self.candidates not in CANDIDATE_SOURCES:
+            raise ValueError(f"CANDIDATES must be one of {', '.join(CANDIDATE_SOURCES)}")
+
     @classmethod
     def from_env(cls) -> "Settings":
         return cls(
@@ -66,10 +79,12 @@ class Settings:
             context=os.environ.get("NGSI_LD_CONTEXT", cls.context).strip(),
             target_attribute=_str("TARGET_ATTRIBUTE"),
             target_values=_list("TARGET_VALUES"),
+            target_id_pattern=_str("TARGET_ID_PATTERN"),
             region=_str("REGION", cls.region),
             population=_str("POPULATION", cls.population),
             ghs_epoch=_int("GHS_EPOCH", cls.ghs_epoch),
             cache_dir=_str("CACHE_DIR", cls.cache_dir),
+            candidates=_str("CANDIDATES", cls.candidates),
             candidate_spacing=_float("CANDIDATE_SPACING", cls.candidate_spacing),
             data_refresh=_int("DATA_REFRESH", cls.data_refresh),
             job_workers=_int("JOB_WORKERS", cls.job_workers),

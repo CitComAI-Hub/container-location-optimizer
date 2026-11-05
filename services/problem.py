@@ -90,6 +90,7 @@ class Problem:
         containers: list[Container],
         population: Population,
         candidate_spacing: float = 50.0,
+        candidates: str = "containers",
     ):
         self.region = region
         self.projection = LocalProjection.for_geometry(region)
@@ -109,12 +110,17 @@ class Problem:
         self.current_counts = counts
         self.current_containers = int(target.sum())
 
-        # Candidates: every container site (target ones first, so the current
-        # layout is in the search space), at least candidate_spacing apart
-        order = np.concatenate((np.flatnonzero(target), np.flatnonzero(~target)))
-        all_xy = self.projection.to_xy(lonlat[order])
-        kept = order[_dedup(all_xy, candidate_spacing)]
-        self.candidates_lonlat = lonlat[kept]
+        # Candidates, at least candidate_spacing apart. The current sites go
+        # first, so the current layout is in the search space; then the other
+        # containers and/or the populated pixels (useful when the platform
+        # only knows a few containers, e.g. the ones with a sensor)
+        pools = [lonlat[target]]
+        if candidates in ("containers", "both"):
+            pools.append(lonlat[~target])
+        if candidates in ("population", "both"):
+            pools.append(population.lonlat)
+        pool = np.concatenate(pools)
+        self.candidates_lonlat = pool[_dedup(self.projection.to_xy(pool), candidate_spacing)]
         self.candidates_xy = self.projection.to_xy(self.candidates_lonlat)
         self.candidate_tree = cKDTree(self.candidates_xy)
 

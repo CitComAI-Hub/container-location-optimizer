@@ -10,6 +10,7 @@ query by type (every broker and Lepus support it).
 
 import logging
 import os
+import re
 from dataclasses import dataclass
 
 from filip.clients.ngsi_ld.cb import ContextBrokerLDClient
@@ -52,8 +53,16 @@ def _texts(value) -> set[str]:
     return {str(value).strip().lower()}
 
 
-def is_target(entity: dict, attribute: str | None, values: tuple[str, ...]) -> bool:
-    """True if the container is one of those being optimised."""
+def is_target(
+    entity: dict,
+    attribute: str | None,
+    values: tuple[str, ...],
+    id_pattern: re.Pattern | None = None,
+) -> bool:
+    """True if the container is one of those being optimised: its id matches
+    the pattern and its attribute has one of the values (each if given)."""
+    if id_pattern is not None and not id_pattern.search(str(entity.get("id", ""))):
+        return False
     if not attribute:
         return True
     texts = _texts(entity.get(attribute))
@@ -63,12 +72,13 @@ def is_target(entity: dict, attribute: str | None, values: tuple[str, ...]) -> b
 
 
 def to_containers(entities: list[dict], settings: Settings) -> list[Container]:
+    pattern = re.compile(settings.target_id_pattern) if settings.target_id_pattern else None
     containers = []
     for entity in entities:
         point = _point(entity.get("location"))
         if point is None:
             continue
-        target = is_target(entity, settings.target_attribute, settings.target_values)
+        target = is_target(entity, settings.target_attribute, settings.target_values, pattern)
         containers.append(Container(str(entity.get("id")), point[0], point[1], target))
     skipped = len(entities) - len(containers)
     if skipped:
