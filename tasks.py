@@ -1,7 +1,5 @@
-from dotenv import load_dotenv
 import os
-import json
-import time
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -16,7 +14,7 @@ import pickle
 
 
 # Init Celery
-app = Celery("tasks", broker="pyamqp://guest@localhost//", backend="rpc://")
+app = Celery("tasks", broker=os.environ.get("ENDPOINT_CELERY_BROKER"), backend="rpc://")
 app.config_from_object("celery_config")
 
 

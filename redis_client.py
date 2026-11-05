@@ -12,9 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 redis_endpoint = os.environ.get("ENDPOINT_REDIS")
+redis_port = os.environ.get("REDIS_PORT")
 
 # Redis client
-redis_client = redis.StrictRedis(host=redis_endpoint, port=6379, db=0)
+redis_client = redis.StrictRedis(host=redis_endpoint, port=redis_port, db=0)
 
 
 def get_data_from_redis(self, key):
