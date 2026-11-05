@@ -1,0 +1,47 @@
+# Level 1 locally: an NGSI-LD broker (Orion-LD) with Valencia's containers
+# (open data) and the service. See the README.
+#
+#   docker compose up -d --build
+#   docker compose run --rm sample      # loads the sample containers
+#   open http://localhost:5000
+services:
+  mongo:
+    image: mongo:4.4
+    volumes:
+      - mongo:/data/db
+
+  orion:
+    image: quay.io/fiware/orion-ld:1.6.0
+    command: -dbhost mongo -logLevel WARN
+    depends_on: [mongo]
+    restart: on-failure
+    ports:
+      - "1026:1026"
+
+  sample:
+    build: .
+    profiles: [sample]
+    depends_on: [orion]
+    command: python scripts/valencia_sample.py --broker http://orion:1026
+    volumes:
+      - ./scripts:/app/scripts:ro
+
+  app:
+    build: .
+    depends_on: [orion]
+    environment:
+      NGSI_LD_URL: http://orion:1026
+      TARGET_ATTRIBUTE: storedWasteKind
+      TARGET_VALUES: oil
+      DATA_REFRESH: "300"
+    ports:
+      - "5000:5000"
+    volumes:
+      - cache:/app/cache
+    # One core and 1 GiB, as in the cluster
+    cpus: 1.5
+    mem_limit: 1g
+
+volumes:
+  mongo:
+  cache:

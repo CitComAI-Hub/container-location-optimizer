@@ -1,53 +1,123 @@
-# Import tasks queue
-from tasks import optimize, evaluate_current_solution
-import pickle
-from redis_client import redis_client
+"""Web server: the UI and a small REST API.
 
-# Init flask server
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+Every path is relative, so the service can live under a path prefix behind
+the data space connector (e.g. /container-location/).
+Run it with ``gunicorn "server:create_app()"`` (one worker: jobs and data
+live in its memory).
+"""
+
+import logging
+
+from flask import Flask, jsonify, request
+
+from services.config import Settings
+from services.genetic import Parameters
+from services.jobs import JobQueue, QueueFull
+from services.state import State
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 app = Flask(__name__)
-CORS(app)
+settings = Settings.from_env()
+state: State | None = None
+jobs: JobQueue | None = None
 
-# Serve frontend
+
+def create_app(data_state: State | None = None, start: bool = True) -> Flask:
+    global state, jobs
+    state = data_state or State(settings)
+    jobs = JobQueue(
+        workers=settings.job_workers,
+        max_queued=settings.max_queued_jobs,
+        timeout=settings.job_timeout,
+        nice=settings.job_nice,
+        kept=settings.kept_jobs,
+    )
+    if start:
+        state.start()
+    return app
+
+
+def _error(message: str, status: int):
+    return jsonify({"error": message}), status
+
+
+def _number(data, name: str, default, low, high, kind=int):
+    value = data.get(name, default)
+    try:
+        value = kind(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} must be a number") from None
+    if not low <= value <= high:
+        raise ValueError(f"{name} must be between {low} and {high}")
+    return value
+
+
 @app.route("/")
 def home():
     return app.send_static_file("index.html")
 
 
-# API REST
-@app.route("/data/current", methods=["GET"])
-def waste_containers():
-    """
-    This endpoint reads the serialized data from Redis, deserializes it using pickle,
-    and returns it as a JSON response.
-    """
-    # Retrieve the pickled data from Redis
-    current_layout = redis_client.get("current_layout")
-    evaluation = evaluate_current_solution()
-
-    # If data is found, deserialize it using pickle
-    if current_layout:
-        data = pickle.loads(current_layout)
-        # Convert to json
-        json_data = [entity.to_json() for entity in data]
-        evaluation["containers"] = json_data    
-    return evaluation
-    # else:
-    #     return jsonify({"error": "No data available"}), 404
+@app.route("/healthz")
+def healthz():
+    return {"status": "ok"}
 
 
-@app.route("/start_task")
-def start_task():
-    task = optimize.apply_async()
-    return jsonify({"task_id": task.id}), 202
+@app.route("/api/status")
+def status():
+    return state.summary()
 
 
-# Route to get the task status
-@app.route("/task_status", methods=["GET"])
-def task_status():
-    task_id = request.args.get("task_id")
-    task = optimize.AsyncResult(task_id)
-    response = {"state": task.state, "result": task.result}
-    return jsonify(response)
+@app.route("/api/layout")
+def current_layout():
+    if state.problem is None:
+        return _error("Data not loaded yet", 503)
+    try:
+        service_level = _number(request.args, "service_level", 1000, 1, 1_000_000, float)
+    except ValueError as error:
+        return _error(str(error), 400)
+    return state.current_layout(service_level)
+
+
+@app.route("/api/jobs", methods=["GET"])
+def list_jobs():
+    return {"jobs": [job.view() for job in jobs.list()]}
+
+
+@app.route("/api/jobs", methods=["POST"])
+def create_job():
+    problem = state.problem
+    if problem is None:
+        return _error("Data not loaded yet", 503)
+    data = request.get_json(silent=True) or {}
+    try:
+        params = Parameters(
+            containers=_number(data, "containers", problem.current_containers, 1, problem.size),
+            service_level=_number(data, "service_level", 1000, 1, 1_000_000, float),
+            generations=_number(data, "generations", 200, 1, settings.max_generations),
+            population_size=_number(data, "population_size", 100, 10, settings.max_population_size),
+        )
+    except ValueError as error:
+        return _error(str(error), 400)
+    name = str(data.get("name") or "").strip()[:80]
+    try:
+        job = jobs.submit(problem, params, name)
+    except QueueFull as error:
+        return _error(str(error), 429)
+    return job.view(), 202
+
+
+@app.route("/api/jobs/<job_id>", methods=["GET"])
+def get_job(job_id: str):
+    job = jobs.get(job_id)
+    if job is None:
+        return _error("No such job", 404)
+    return job.view(with_result=True)
+
+
+@app.route("/api/jobs/<job_id>", methods=["DELETE"])
+def cancel_job(job_id: str):
+    job = jobs.cancel(job_id)
+    if job is None:
+        return _error("No such job", 404)
+    return job.view()

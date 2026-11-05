@@ -1,0 +1,66 @@
+# Example deployment (level 2: containers through the provider's connector).
+# In the CitCom data space it is deployed with Terraform from dataspace-on-upv.
+#
+# Resources: one optimisation at a time uses one core (JOB_WORKERS=1, numerical
+# libraries limited to one thread); the limit leaves room for the web server.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: container-location
+type: Opaque
+stringData:
+  DS_PASSWORD: "<password of the consumer user>"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: container-location
+  labels: { app: container-location }
+spec:
+  replicas: 1 # jobs live in memory: do not scale out
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: container-location }
+  template:
+    metadata:
+      labels: { app: container-location }
+    spec:
+      securityContext: { runAsNonRoot: true, runAsUser: 10001 }
+      containers:
+        - name: app
+          image: ghcr.io/citcomai-hub/optimizing-container-location:v1.0
+          ports: [{ containerPort: 5000 }]
+          env:
+            - { name: NGSI_LD_URL, value: "https://apisix-<provider>.citcom-vrain-dataspace.eu/lepus" }
+            - { name: TARGET_ATTRIBUTE, value: storedWasteKind }
+            - { name: TARGET_VALUES, value: oil }
+            - { name: DS_ISSUER_URL, value: "https://keycloak-<consumer>.citcom-vrain-dataspace.eu/realms/provider" }
+            - { name: DS_USERNAME, value: "<consumer user>" }
+            - { name: DS_VERIFIER_URL, value: "https://verifier-<provider>.citcom-vrain-dataspace.eu/services/<service>" }
+            - { name: DS_SCOPE, value: "<scope>" }
+            - name: DS_PASSWORD
+              valueFrom: { secretKeyRef: { name: container-location, key: DS_PASSWORD } }
+            - { name: JOB_WORKERS, value: "1" }
+            - { name: MAX_QUEUED_JOBS, value: "5" }
+            - { name: JOB_TIMEOUT, value: "1800" }
+          resources:
+            requests: { cpu: 250m, memory: 384Mi }
+            limits: { cpu: 1500m, memory: 1Gi }
+          readinessProbe:
+            httpGet: { path: /healthz, port: 5000 }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 5000 }
+            periodSeconds: 30
+          volumeMounts:
+            - { name: cache, mountPath: /app/cache }
+      volumes:
+        - name: cache # population read from GHS-POP (tens of KB for a city)
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: container-location
+spec:
+  selector: { app: container-location }
+  ports: [{ port: 80, targetPort: 5000 }]
