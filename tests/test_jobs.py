@@ -3,7 +3,8 @@ import time
 import pytest
 
 from services.genetic import Parameters
-from services.jobs import JobQueue, QueueFull
+from services.jobs import JobQueue, QueueFull, layout_of
+from services.pareto import ParetoParameters
 
 
 def wait(queue, job_id, states, timeout=60):
@@ -65,3 +66,18 @@ def test_finished_jobs_can_be_deleted_but_not_active_ones(problem):
     queue.cancel(running.id)
     wait(queue, running.id, {"cancelled"})
     assert queue.delete(running.id) is True
+
+
+def test_pareto_job_returns_a_front_and_each_layout_on_request(problem):
+    queue = JobQueue(workers=1, max_queued=2, timeout=60, nice=0)
+    params = ParetoParameters(
+        min_containers=2, max_containers=6, generations=5, population_size=10, seed=1
+    )
+    job = wait(queue, queue.submit(problem, params).id, {"done", "failed"})
+    assert job.state == "done", job.error
+    assert job.kind == "pareto"
+    front = job.view(with_result=True)["result"]["front"]
+    assert front and "sites" not in front[0] and "inequity" in front[0]["metrics"]
+    layout = layout_of(problem, job, 0)
+    assert layout["metrics"]["sites"] == front[0]["metrics"]["sites"]
+    assert layout["cells"]["type"] == "FeatureCollection"

@@ -42,6 +42,31 @@ With the default settings, Valencia's 350 oil containers (792,000 people) take a
 drops from 193 m to 164 m, and the distance within which 95 % of people have a container drops from 518 m to about 350 m.
 Overload stays at its minimum: 350 containers × 1000 people only cover 44 % of the population.
 
+### Variant: the trade-off (multi-objective)
+
+How many containers are worth it, and is the shortage fair? Instead of one layout for *k* containers, a **trade-off**
+job returns a Pareto front of layouts with between *k*<sub>min</sub> and *k*<sub>max</sub> containers (half and 1.5
+times today's by default, in 11 steps plus today's number). It minimises, together:
+
+1. **containers**,
+2. **people above capacity** (as above),
+3. **unfairness**: how unequally the people above capacity are spread between neighbourhoods. The area is cut into
+   500 m cells; the neighbourhood of a cell is every cell within 1 km. Unfairness is the population-weighted standard
+   deviation, between neighbourhoods, of the share of people above capacity. It is 0 when every neighbourhood carries
+   the same share, and grows when the shortage piles up in some of them.
+
+The front has, for each number of containers, layouts from the fewest people above capacity to the fairest. The UI
+lists them, marks with ★ those that beat today's layout with no more containers, and draws the one picked.
+
+The algorithm is NSGA-II on sets of sites. Its crossover is **regional**: a child takes one parent's sites inside a
+random disc and the other's outside it, so it inherits two spatially coherent partial layouts. Mutation moves sites to
+nearby candidates and changes the number of containers. It is about 3 times slower than a single layout (300
+generations: ~1 min for Donostia, ~2.5 min for Valencia on one core).
+
+Unfairness replaces the Moran's I of an earlier version of this method, which turned out to be ill-posed as an
+objective: on the containers themselves, it is −1 for any layout of 2 containers and within ±0.15 for any realistic one.
+Moran's I of the cells is still reported, as a diagnostic. See [`services/equity.py`](./services/equity.py).
+
 ## Architecture
 
 ```text
@@ -51,7 +76,8 @@ static/ (UI: Leaflet map) ──▶ server.py (Flask, REST API)
                                 │    ├─ population.py ─── GHS-POP window of the region (or any GeoTIFF), cached
                                 │    └─ problem.py ────── candidates, current layout, evaluation, Voronoi cells
                                 └─ services/jobs.py ─── queue of optimisations, each in a child process
-                                     └─ genetic.py ────── the genetic algorithm
+                                     ├─ genetic.py ────── the genetic algorithm (one layout)
+                                     └─ pareto.py ─────── NSGA-II (trade-off) ── equity.py (unfairness)
 ```
 
 API (relative paths, so the service can live under a prefix such as `/container-location/`):
@@ -60,8 +86,9 @@ API (relative paths, so the service can live under a prefix such as `/container-
 |---|---|
 | `GET /api/status` | `loading`, `ready` or `error`; counts, region and candidate sites |
 | `GET /api/layout?service_level=1000` | The current layout: metrics and Voronoi cells (GeoJSON) |
-| `POST /api/jobs` | New optimisation: `{name, containers, service_level, generations, population_size}` → `202` (or `429` if the queue is full) |
-| `GET /api/jobs`, `GET /api/jobs/<id>` | Jobs with their progress; one job with its result |
+| `POST /api/jobs` | New optimisation: `{name, containers, service_level, generations, population_size}` → `202` (or `429` if the queue is full). A trade-off: `{"kind": "pareto", min_containers, max_containers, …}` |
+| `GET /api/jobs`, `GET /api/jobs/<id>` | Jobs with their progress; one job with its result (for a trade-off, the metrics of every layout of the front) |
+| `GET /api/jobs/<id>/layouts/<n>` | Layout *n* of the front of a finished trade-off, with its cells |
 | `DELETE /api/jobs/<id>` | Cancels a queued or running job (`200`); deletes a finished one (`204`) |
 | `GET /healthz` | Liveness |
 

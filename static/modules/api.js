@@ -28,6 +28,8 @@ export const api = {
     layout: (serviceLevel) => request(`api/layout?service_level=${encodeURIComponent(serviceLevel)}`),
     jobs: () => request("api/jobs"),
     job: (id) => request(`api/jobs/${encodeURIComponent(id)}`),
+    // One layout of the front of a trade-off job, with its cells
+    jobLayout: (id, index) => request(`api/jobs/${encodeURIComponent(id)}/layouts/${index}`),
     createJob: (params) => request("api/jobs", { method: "POST", body: JSON.stringify(params) }),
     // Cancels a queued or running job; deletes a finished one
     deleteJob: (id) => request(`api/jobs/${encodeURIComponent(id)}`, { method: "DELETE" }),

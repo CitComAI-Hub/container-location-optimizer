@@ -12,12 +12,14 @@ Voronoi polygons are only built to draw a result.
 """
 
 from dataclasses import dataclass
+from functools import cached_property
 
 import numpy as np
 import shapely
 from scipy.spatial import cKDTree
 
 from services.data_source import Container
+from services.equity import Neighbourhoods, pixel_unserved
 from services.geo import LocalProjection
 from services.population import Population
 
@@ -35,6 +37,8 @@ class Evaluation:
     people: float
     loads: np.ndarray  # people per site
     capacities: np.ndarray
+    pixel_site: np.ndarray  # site (index into the layout) of each pixel
+    pixel_distance: np.ndarray  # metres from each pixel to its site
 
     @property
     def key(self) -> tuple[float, float]:
@@ -141,6 +145,22 @@ class Problem:
     def size(self) -> int:
         return len(self.candidates_xy)
 
+    @cached_property
+    def neighbourhoods(self) -> Neighbourhoods:
+        """Fixed spatial support of the equity measure (500 m cells, 1 km radius)."""
+        return Neighbourhoods.build(self.pixels_xy, self.people)
+
+    def equity(self, evaluation: "Evaluation") -> dict:
+        """Spatial inequity of the unserved share and its Moran's I (see services.equity)."""
+        unserved = pixel_unserved(
+            self.people, evaluation.pixel_site, evaluation.loads, evaluation.capacities
+        )
+        morans_i = self.neighbourhoods.morans_i(unserved)
+        return {
+            "inequity": round(self.neighbourhoods.inequity(unserved), 4),
+            "morans_i": None if morans_i is None else round(morans_i, 3),
+        }
+
     def seed(self, k: int, rng: np.random.Generator) -> np.ndarray:
         """Candidates closest to the current layout (k of them)."""
         _, nearest = self.candidate_tree.query(self.projection.to_xy(self.current_lonlat))
@@ -162,6 +182,8 @@ class Problem:
             people=self.total_people,
             loads=loads,
             capacities=capacities,
+            pixel_site=site_of_pixel,
+            pixel_distance=dist,
         )
 
     def evaluate(self, selected: np.ndarray, service_level: float) -> Evaluation:
@@ -186,12 +208,19 @@ class Problem:
         capacities = np.full(selected.size, float(service_level))
         return self._result(site, dist, selected.size, capacities)
 
+    def evaluate_sites(
+        self, sites_lonlat: np.ndarray, service_level: float, counts: np.ndarray | None = None
+    ) -> Evaluation:
+        """Evaluate any sites (lon, lat), each with ``counts`` containers (default 1)."""
+        sites_lonlat = np.asarray(sites_lonlat, dtype=float).reshape(-1, 2)
+        tree = cKDTree(self.projection.to_xy(sites_lonlat))
+        dist, site = tree.query(self.pixels_xy)
+        counts = np.ones(len(sites_lonlat)) if counts is None else counts
+        return self._result(site, dist, len(sites_lonlat), counts * float(service_level))
+
     def evaluate_current(self, service_level: float) -> Evaluation:
         """Evaluate the current layout (a site holds one or more containers)."""
-        tree = cKDTree(self.projection.to_xy(self.current_lonlat))
-        dist, site = tree.query(self.pixels_xy)
-        capacities = self.current_counts * float(service_level)
-        return self._result(site, dist, len(self.current_lonlat), capacities)
+        return self.evaluate_sites(self.current_lonlat, service_level, self.current_counts)
 
     # ------------------------------------------------------------------ #
     def cells(self, sites_lonlat: np.ndarray, evaluation: Evaluation) -> dict:
@@ -224,4 +253,5 @@ class Problem:
         return {"type": "FeatureCollection", "features": features}
 
     def layout(self, sites_lonlat: np.ndarray, evaluation: Evaluation) -> dict:
-        return {"metrics": evaluation.summary(), "cells": self.cells(sites_lonlat, evaluation)}
+        metrics = {**evaluation.summary(), **self.equity(evaluation)}
+        return {"metrics": metrics, "cells": self.cells(sites_lonlat, evaluation)}

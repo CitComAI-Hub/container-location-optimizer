@@ -49,8 +49,27 @@
                     <label class="label is-small" for="name">Name</label>
                     <input id="name" class="input is-small" type="text" maxlength="80" placeholder="Layout 1">
                 </div>
-                <div class="pair">
+                <div class="field">
+                    <label class="label is-small" for="kind">What to compute</label>
+                    <div class="select is-small is-fullwidth">
+                        <select id="kind">
+                            <option value="single">One layout for a number of containers</option>
+                            <option value="pareto">Trade-off: containers, unserved people and fairness</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="pair is-hidden" id="range">
                     <div class="field">
+                        <label class="label is-small" for="min-containers">From containers</label>
+                        <input id="min-containers" class="input is-small" type="number" min="1">
+                    </div>
+                    <div class="field">
+                        <label class="label is-small" for="max-containers">To containers</label>
+                        <input id="max-containers" class="input is-small" type="number" min="1">
+                    </div>
+                </div>
+                <div class="pair">
+                    <div class="field" id="containers-field">
                         <label class="label is-small" for="containers">Containers</label>
                         <input id="containers" class="input is-small" type="number" min="1" required>
                     </div>
@@ -73,6 +92,9 @@
                     </div>
                 </details>
                 <button id="optimize" class="button is-primary is-small is-fullwidth" type="submit">Optimize</button>
+                <p class="help is-hidden" id="pareto-help">A trade-off returns several layouts: for each
+                    number of containers, from fewest people left without capacity to the fairest
+                    spread of them between neighbourhoods. Pick one to see it on the map.</p>
                 <p class="help">Jobs run one at a time on the server. If another one is running, yours waits in the queue.</p>
             </form>
         </aside>

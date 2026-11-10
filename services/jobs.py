@@ -22,9 +22,12 @@ import queue
 import threading
 import time
 import uuid
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
+
+import numpy as np
 
 from services.genetic import GeneticAlgorithm, Parameters
+from services.pareto import ParetoAlgorithm, ParetoParameters
 from services.problem import Problem
 
 logger = logging.getLogger(__name__)
@@ -42,6 +45,7 @@ class QueueFull(Exception):
 class Job:
     id: str
     name: str
+    kind: str  # single (one layout) or pareto (a front of layouts)
     params: dict
     state: str = "queued"  # queued, running, done, failed, cancelled
     created: float = field(default_factory=time.time)
@@ -57,10 +61,49 @@ class Job:
         data.pop("cancel_requested")
         if not with_result:
             data.pop("result")
+        elif self.kind == "pareto" and self.result:
+            # The sites stay on the server; a layout is fetched on its own
+            data["result"] = {
+                **self.result,
+                "front": [{"metrics": item["metrics"]} for item in self.result["front"]],
+            }
         return data
 
 
-def _run(problem: Problem, params: Parameters, nice: int, conn) -> None:
+def _single(problem: Problem, params: Parameters, progress) -> dict:
+    best, history = GeneticAlgorithm(problem, params).run(progress)
+    evaluation = problem.evaluate(best, params.service_level)
+    layout = problem.layout(problem.candidates_lonlat[best], evaluation)
+    step = max(1, len(history) // 200)  # enough points for a chart
+    return {**layout, "history": history[::step] + history[-1:]}
+
+
+def _pareto(problem: Problem, params: ParetoParameters, progress) -> dict:
+    """The front: metrics of every layout and its sites; the cells of a layout
+    are drawn on request (see ``layout_of``)."""
+    algorithm = ParetoAlgorithm(problem, params)
+    front, history = algorithm.run(progress)
+    layouts = []
+    for layout in front:
+        evaluation = problem.evaluate(layout, params.service_level)
+        layouts.append(
+            {
+                "metrics": {**evaluation.summary(), **problem.equity(evaluation)},
+                "sites": problem.candidates_lonlat[layout].round(7).tolist(),
+            }
+        )
+    step = max(1, len(history) // 200)
+    return {"front": layouts, "history": history[::step] + history[-1:]}
+
+
+def layout_of(problem: Problem, job: "Job", index: int) -> dict:
+    """Cells and metrics of layout ``index`` of the front of a finished job."""
+    sites = np.asarray(job.result["front"][index]["sites"], dtype=float)
+    evaluation = problem.evaluate_sites(sites, job.params["service_level"])
+    return problem.layout(sites, evaluation)
+
+
+def _run(problem: Problem, params, nice: int, conn) -> None:
     """Child process: run the algorithm and send progress and the result."""
     try:
         if nice and hasattr(os, "nice"):
@@ -74,11 +117,8 @@ def _run(problem: Problem, params: Parameters, nice: int, conn) -> None:
                 conn.send(("progress", record))
                 last = now
 
-        best, history = GeneticAlgorithm(problem, params).run(progress)
-        evaluation = problem.evaluate(best, params.service_level)
-        layout = problem.layout(problem.candidates_lonlat[best], evaluation)
-        step = max(1, len(history) // 200)  # enough points for a chart
-        conn.send(("done", {**layout, "history": history[::step] + history[-1:]}))
+        run = _pareto if isinstance(params, ParetoParameters) else _single
+        conn.send(("done", run(problem, params, progress)))
     except Exception as error:  # noqa: BLE001 - reported to the user
         conn.send(("error", f"{type(error).__name__}: {error}"))
     finally:
@@ -99,21 +139,29 @@ class JobQueue:
         self.nice = nice
         self.kept = kept
         self._jobs: dict[str, Job] = {}
-        self._payloads: dict[str, tuple[Problem, Parameters]] = {}
+        self._payloads: dict[str, tuple[Problem, Parameters | ParetoParameters]] = {}
         self._pending: queue.Queue[str] = queue.Queue()
         self._lock = threading.Lock()
         for i in range(max(1, workers)):
             threading.Thread(target=self._loop, name=f"job-worker-{i}", daemon=True).start()
 
     # -- API ---------------------------------------------------------- #
-    def submit(self, problem: Problem, params: Parameters, name: str = "") -> Job:
+    def submit(
+        self, problem: Problem, params: Parameters | ParetoParameters, name: str = ""
+    ) -> Job:
         if params.time_limit is None:
-            params = Parameters(**{**asdict(params), "time_limit": self.timeout})
+            params = replace(params, time_limit=self.timeout)
+        kind = "pareto" if isinstance(params, ParetoParameters) else "single"
         with self._lock:
             queued = sum(job.state == "queued" for job in self._jobs.values())
             if queued >= self.max_queued:
                 raise QueueFull(f"{queued} jobs are waiting; try again later")
-            job = Job(id=uuid.uuid4().hex[:12], name=name or "Layout", params=asdict(params))
+            job = Job(
+                id=uuid.uuid4().hex[:12],
+                name=name or ("Trade-off" if kind == "pareto" else "Layout"),
+                kind=kind,
+                params=asdict(params),
+            )
             self._jobs[job.id] = job
             self._payloads[job.id] = (problem, params)
             self._prune()
@@ -179,7 +227,7 @@ class JobQueue:
             job.state, job.finished = state, time.time()
             job.result, job.error = result, error
 
-    def _execute(self, job: Job, problem: Problem, params: Parameters) -> None:
+    def _execute(self, job: Job, problem: Problem, params) -> None:
         parent, child = _context.Pipe(duplex=False)
         process = _context.Process(
             target=_run, args=(problem, params, self.nice, child), daemon=True

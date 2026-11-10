@@ -63,3 +63,15 @@ def test_delete_cancels_an_active_job_then_deletes_it(client):
     assert client.delete(f"/api/jobs/{job['id']}").status_code == 204
     assert client.get(f"/api/jobs/{job['id']}").status_code == 404
     assert client.delete(f"/api/jobs/{job['id']}").status_code == 404
+
+
+def test_pareto_job_parameters(client):
+    bad = {"kind": "pareto", "min_containers": 4, "max_containers": 2}
+    bad = client.post("/api/jobs", json=bad)
+    assert bad.status_code == 400
+    assert client.post("/api/jobs", json={"kind": "other"}).status_code == 400
+    job = client.post("/api/jobs", json={"kind": "pareto", "generations": 1000}).get_json()
+    assert job["kind"] == "pareto"
+    assert job["params"]["min_containers"] == 2 and job["params"]["max_containers"] == 8
+    assert client.get(f"/api/jobs/{job['id']}/layouts/0").status_code == 404  # not finished
+    client.delete(f"/api/jobs/{job['id']}")

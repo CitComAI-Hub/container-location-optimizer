@@ -234,3 +234,50 @@ body {
     z-index: 2000;
     max-width: 90vw;
 }
+
+/* Front of a trade-off job */
+.front {
+    width: 100%;
+    margin-top: 0.4rem;
+    font-size: 0.72rem;
+    max-height: 14rem;
+    overflow-y: auto;
+    display: block;
+}
+
+.front:empty {
+    display: none;
+}
+
+.front table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.front th,
+.front td {
+    padding: 0.15rem 0.3rem;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.front th {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    font-weight: 600;
+}
+
+.front tbody tr {
+    cursor: pointer;
+}
+
+.front tbody tr:hover,
+.front tbody tr.is-selected {
+    background: rgba(42, 120, 214, 0.12);
+}
+
+.front tr.is-better td:first-child::before {
+    content: "★ ";
+    color: var(--accent);
+}

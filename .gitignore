@@ -164,3 +164,8 @@ cython_debug/
 # Service
 cache/
 sample/
+
+# Experiments: generated
+experiments/results/
+experiments/cache/
+experiments/figures/
