@@ -70,6 +70,12 @@ for city in CITIES:
         best_i = [f[:, 2].min() for f in at_k0 if len(f)]
         # The layout of each run at k0 with the fewest unserved people
         pick = [f[f[:, 1].argmin()] for f in at_k0 if len(f)]
+        # ... and the fairest one with no more unserved people than today
+        fair = []
+        for f in at_k0:
+            ok = f[f[:, 1] <= ev.overload]
+            if len(ok):
+                fair.append(ok[ok[:, 2].argmin()])
         res[v] = {
             "runs": len(hvs),
             "hv": hvs,
@@ -87,6 +93,7 @@ for city in CITIES:
             "k0_best_unserved_median": float(np.median(best_u)) if best_u else None,
             "k0_best_inequity_median": float(np.median(best_i)) if best_i else None,
             "k0_min_unserved_layout_median": np.median(pick, axis=0).tolist() if pick else None,
+            "k0_fairest_layout_median": np.median(fair, axis=0).tolist() if fair else None,
         }
     x, y = res["regional"]["hv"], res["uniform"]["hv"]
     res["mannwhitney_p"] = float(stats.mannwhitneyu(x, y, alternative="two-sided").pvalue)

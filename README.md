@@ -60,8 +60,10 @@ lists them, marks with ★ those that beat today's layout with no more container
 
 The algorithm is NSGA-II on sets of sites. Its crossover is **regional**: a child takes one parent's sites inside a
 random disc and the other's outside it, so it inherits two spatially coherent partial layouts. Mutation moves sites to
-nearby candidates and changes the number of containers. It is about 3 times slower than a single layout (300
-generations: ~1 min for Donostia, ~2.5 min for Valencia on one core).
+nearby candidates and changes the number of containers. With 300 generations it takes about 40 s for Donostia and
+100 s for Valencia on one core. On five Spanish cities (30 runs each, see [`experiments/`](./experiments)), the
+regional crossover gives better fronts than the uniform one in all of them, and with today's number of containers the
+front always has a layout with no more people above capacity and 2 to 8 times less unfairness than today's.
 
 Unfairness replaces the Moran's I of an earlier version of this method, which turned out to be ill-posed as an
 objective: on the containers themselves, it is −1 for any layout of 2 containers and within ±0.15 for any realistic one.
