@@ -64,3 +64,20 @@ def test_both_crossovers_keep_the_allowed_sizes(problem):
             for child in (*algorithm.crossover(a, b), algorithm.mutate(a)):
                 assert child.size in allowed
                 assert np.unique(child).size == child.size
+
+
+def test_nsga3_with_four_objectives(problem):
+    params = ParetoParameters(
+        min_containers=2,
+        max_containers=8,
+        generations=5,
+        population_size=20,
+        algorithm="nsga3",
+        distance=True,
+        seed=1,
+    )
+    algorithm = ParetoAlgorithm(problem, params)
+    front, _ = algorithm.run()
+    F = np.array([algorithm.objectives(x)[0] for x in front])
+    assert F.shape[1] == 4
+    assert len(non_dominated_fronts(F)[0]) == len(front)

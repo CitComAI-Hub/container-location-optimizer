@@ -1,6 +1,12 @@
-"""Hypervolume and statistics of the runs in results/ -> analysis.json + LaTeX snippets."""
+"""Hypervolume, statistics and comparison with today's layouts -> results/analysis.json
+
+Variants: algorithm (nsga2, nsga3) x objectives (3, 4) x crossover (regional, uniform).
+Each front is scored with the hypervolume of its own objectives (HV3 or HV4) and, to
+compare the formulations, with HV4 (every front records the distance of its layouts).
+"""
 
 import glob
+import itertools
 import json
 import os
 
@@ -10,20 +16,44 @@ from pymoo.indicators.hv import HV
 from scipy import stats
 
 from services.equity import pixel_unserved
+from services.pareto import non_dominated_fronts
 
-VARIANTS = ["uniform", "regional"]
-out = {}
+ALGORITHMS, OBJECTIVES, CROSSOVERS = ("nsga2", "nsga3"), (3, 4), ("regional", "uniform")
+VARIANTS = [f"{a}-{o}_{x}" for a, o, x in itertools.product(ALGORITHMS, OBJECTIVES, CROSSOVERS)]
 
 
 def a12(x, y):
-    """Vargha-Delaney A: probability that a run of x beats a run of y."""
+    """Vargha-Delaney A: probability that a run of x beats a run of y (higher is better)."""
     x, y = np.asarray(x), np.asarray(y)
-    return float(
-        ((x[:, None] > y[None, :]).sum() + 0.5 * (x[:, None] == y[None, :]).sum())
-        / (x.size * y.size)
-    )
+    wins = (x[:, None] > y[None, :]).sum() + 0.5 * (x[:, None] == y[None, :]).sum()
+    return float(wins / (x.size * y.size))
 
 
+def compare(x, y):
+    return {"p": float(stats.mannwhitneyu(x, y, alternative="two-sided").pvalue), "a12": a12(x, y)}
+
+
+def holm(pvalues):
+    """Holm-Bonferroni adjusted p-values."""
+    p = np.asarray(pvalues, dtype=float)
+    order = np.argsort(p)
+    adjusted = np.maximum.accumulate((p.size - np.arange(p.size)) * p[order])
+    out = np.empty_like(p)
+    out[order] = np.minimum(adjusted, 1.0)
+    return out
+
+
+def summary(values):
+    v = np.asarray(values, dtype=float)
+    return {
+        "mean": float(v.mean()),
+        "sd": float(v.std(ddof=1)),
+        "median": float(np.median(v)),
+        "iqr": float(np.subtract(*np.percentile(v, [75, 25]))),
+    }
+
+
+out = {}
 for city in CITIES:
     runs = {
         v: [
@@ -32,7 +62,8 @@ for city in CITIES:
         ]
         for v in VARIANTS
     }
-    if not all(runs.values()):
+    runs = {v: r for v, r in runs.items() if r}
+    if not runs:
         continue
     p = load(city)
     k0 = p.current_containers
@@ -42,62 +73,81 @@ for city in CITIES:
     )
     current = np.array([k0, ev.overload, cur_ineq, ev.mean_distance, ev.p95_distance])
 
-    allF = np.vstack([r["front"][:, :3] for v in VARIANTS for r in runs[v]])
-    lo = np.array([k0 // 2, allF[:, 1].min(), 0.0])
-    hi = np.array([round(k0 * 1.5), allF[:, 1].max(), max(allF[:, 2].max(), cur_ineq)])
-    hv = HV(ref_point=np.full(3, 1.1))
-
-    def H(F, hv=hv, lo=lo, hi=hi):
-        return float(hv((np.asarray(F, float)[:, :3] - lo) / (hi - lo)))
-
-    res = {"current": current.round(4).tolist(), "bounds": [lo.tolist(), hi.tolist()]}
-    for v in VARIANTS:
-        hvs = [H(r["front"]) for r in runs[v]]
-        conv = np.array([[H(s) for s in r["snapshots"]] for r in runs[v]])
-        # Layouts with today's number of containers: best unserved and best inequity
-        at_k0 = [r["front"][r["front"][:, 0] == k0] for r in runs[v]]
-        dom = [int(((f[:, 1] <= ev.overload) & (f[:, 2] <= cur_ineq)).sum() > 0) for f in at_k0]
-        dom_dist = [
-            int(
-                (
-                    (f[:, 1] <= ev.overload) & (f[:, 2] <= cur_ineq) & (f[:, 3] <= ev.mean_distance)
-                ).sum()
-                > 0
-            )
-            for f in at_k0
+    # front rows: containers, unserved, inequity, mean distance, p95, Moran's I
+    allF = np.vstack([r["front"][:, :4] for rs in runs.values() for r in rs])
+    lo = np.array([k0 // 2, allF[:, 1].min(), 0.0, allF[:, 3].min()])
+    hi = np.array(
+        [
+            round(k0 * 1.5),
+            allF[:, 1].max(),
+            max(allF[:, 2].max(), cur_ineq),
+            max(allF[:, 3].max(), ev.mean_distance),
         ]
-        best_u = [f[:, 1].min() for f in at_k0 if len(f)]
-        best_i = [f[:, 2].min() for f in at_k0 if len(f)]
-        # The layout of each run at k0 with the fewest unserved people
-        pick = [f[f[:, 1].argmin()] for f in at_k0 if len(f)]
-        # ... and the fairest one with no more unserved people than today
-        fair = []
-        for f in at_k0:
-            ok = f[f[:, 1] <= ev.overload]
-            if len(ok):
-                fair.append(ok[ok[:, 2].argmin()])
-        res[v] = {
-            "runs": len(hvs),
-            "hv": hvs,
-            "hv_mean": float(np.mean(hvs)),
-            "hv_sd": float(np.std(hvs, ddof=1)),
-            "hv_median": float(np.median(hvs)),
-            "hv_iqr": float(np.subtract(*np.percentile(hvs, [75, 25]))),
-            "shapiro_p": float(stats.shapiro(hvs).pvalue),
+    )
+    hv3, hv4 = HV(ref_point=np.full(3, 1.1)), HV(ref_point=np.full(4, 1.1))
+
+    def H(F, m, lo=lo, hi=hi, hv3=hv3, hv4=hv4):
+        F = np.asarray(F, dtype=float)[:, :m]
+        F = F[non_dominated_fronts(F)[0]]
+        return float((hv3 if m == 3 else hv4)((F - lo[:m]) / (hi[:m] - lo[:m])))
+
+    res = {
+        "current": current.round(4).tolist(),
+        "bounds": [lo.tolist(), hi.tolist()],
+        "variants": {},
+    }
+    for v, rs in runs.items():
+        m = int(v.split("_")[0].split("-")[1])
+        own = [H(r["front"], m) for r in rs]
+        conv = np.array([[H(s, m) for s in r["snapshots"]] for r in rs])
+        at_k0 = [r["front"][r["front"][:, 0] == k0] for r in rs]
+        better = [f[(f[:, 1] <= ev.overload) & (f[:, 2] <= cur_ineq)] for f in at_k0]
+        res["variants"][v] = {
+            "runs": len(rs),
+            "hv": own,
+            "hv_summary": summary(own),
+            "hv3": [H(r["front"], 3) for r in rs],
+            "hv4": [H(r["front"], 4) for r in rs],
             "convergence_mean": conv.mean(0).tolist(),
             "convergence_sd": conv.std(0).tolist(),
-            "front_size": float(np.mean([len(r["front"]) for r in runs[v]])),
-            "elapsed": float(np.mean([float(r["elapsed"]) for r in runs[v]])),
-            "k0_dominates_current": float(np.mean(dom)),
-            "k0_dominates_current_with_distance": float(np.mean(dom_dist)),
-            "k0_best_unserved_median": float(np.median(best_u)) if best_u else None,
-            "k0_best_inequity_median": float(np.median(best_i)) if best_i else None,
-            "k0_min_unserved_layout_median": np.median(pick, axis=0).tolist() if pick else None,
-            "k0_fairest_layout_median": np.median(fair, axis=0).tolist() if fair else None,
+            "front_size": float(np.mean([len(r["front"]) for r in rs])),
+            "elapsed": float(np.mean([float(r["elapsed"]) for r in rs])),
+            # with today's number of containers
+            "k0_better_than_current": float(np.mean([len(b) > 0 for b in better])),
+            "k0_better_incl_distance": float(
+                np.mean([bool((b[:, 3] <= ev.mean_distance).any()) for b in better])
+            ),
+            "k0_fairest": np.median([b[b[:, 2].argmin()] for b in better if len(b)], 0).tolist(),
+            "k0_closest": np.median([b[b[:, 3].argmin()] for b in better if len(b)], 0).tolist(),
+            "k0_fewest_unserved": np.median(
+                [f[f[:, 1].argmin()] for f in at_k0 if len(f)], 0
+            ).tolist(),
         }
-    x, y = res["regional"]["hv"], res["uniform"]["hv"]
-    res["mannwhitney_p"] = float(stats.mannwhitneyu(x, y, alternative="two-sided").pvalue)
-    res["a12_regional_vs_uniform"] = a12(x, y)
+        res["variants"][v]["hv3_summary"] = summary(res["variants"][v]["hv3"])
+        res["variants"][v]["hv4_summary"] = summary(res["variants"][v]["hv4"])
+
+    # Comparisons, Holm-adjusted within the city
+    V = res["variants"]
+    tests = {}
+    for a, o in itertools.product(ALGORITHMS, OBJECTIVES):
+        x, y = f"{a}-{o}_regional", f"{a}-{o}_uniform"
+        if x in V and y in V:
+            tests[f"crossover {a}-{o}"] = compare(V[x]["hv"], V[y]["hv"])
+    for o in OBJECTIVES:
+        x, y = f"nsga3-{o}_regional", f"nsga2-{o}_regional"
+        if x in V and y in V:
+            tests[f"algorithm {o}"] = compare(V[x]["hv"], V[y]["hv"])
+    for a in ALGORITHMS:
+        x, y = f"{a}-4_regional", f"{a}-3_regional"
+        if x in V and y in V:
+            tests[f"formulation {a}"] = compare(V[x]["hv4"], V[y]["hv4"])
+            tests[f"formulation-hv3 {a}"] = compare(V[x]["hv3"], V[y]["hv3"])
+    if tests:
+        adjusted = holm([t["p"] for t in tests.values()])
+        for t, q in zip(tests.values(), adjusted, strict=True):
+            t["p_holm"] = float(q)
+    res["tests"] = tests
+
     single = [json.load(open(f)) for f in glob.glob(os.path.join(RESULTS, f"single_{city}_*.json"))]
     if single:
         res["single"] = {
@@ -106,21 +156,23 @@ for city in CITIES:
         }
         res["single"]["runs"] = len(single)
     out[city] = res
+
     print(
-        f"{city:10s} HV RX {res['regional']['hv_mean']:.4f}±{res['regional']['hv_sd']:.4f} "
-        f"UX {res['uniform']['hv_mean']:.4f}±{res['uniform']['hv_sd']:.4f} "
-        f"p={res['mannwhitney_p']:.2e} A12={res['a12_regional_vs_uniform']:.2f} | "
-        f"runs {res['regional']['runs']}/{res['uniform']['runs']} | "
-        f"t {res['regional']['elapsed']:.0f}/{res['uniform']['elapsed']:.0f}s | "
-        f"dom.cur RX {res['regional']['k0_dominates_current']:.2f} "
-        f"UX {res['uniform']['k0_dominates_current']:.2f}"
+        f"== {city}: current unserved {ev.overload:.0f} ineq {cur_ineq * 100:.1f} "
+        f"dist {ev.mean_distance:.0f}; single {res.get('single')}"
     )
-    print(
-        f"   current k0={k0} unserved {ev.overload:.0f} ineq {cur_ineq:.4f} dist "
-        f"{ev.mean_distance:.0f} p95 {ev.p95_distance:.0f}; RX@k0 min-unserved layout "
-        f"{np.round(res['regional']['k0_min_unserved_layout_median'], 4).tolist()}; "
-        f"best ineq {res['regional']['k0_best_inequity_median']:.4f}"
-    )
+    for v in VARIANTS:
+        if v in V:
+            s = V[v]
+            print(
+                f"  {v:18s} HV {s['hv_summary']['mean']:.4f}±{s['hv_summary']['sd']:.4f} "
+                f"HV4 {s['hv4_summary']['mean']:.4f} front {s['front_size']:5.1f} "
+                f"t {s['elapsed']:4.0f}s better {s['k0_better_than_current']:.2f}/"
+                f"{s['k0_better_incl_distance']:.2f} fairest {np.round(s['k0_fairest'][1:4], 3)} "
+                f"closest {np.round(s['k0_closest'][1:4], 3)}"
+            )
+    for name, t in tests.items():
+        print(f"  {name:22s} A12 {t['a12']:.2f} p_holm {t['p_holm']:.1e}")
 
 with open(os.path.join(RESULTS, "analysis.json"), "w") as file:
     json.dump(out, file, indent=1)

@@ -50,83 +50,109 @@ def save(fig, name):
     plt.close(fig)
 
 
-# 1. Hypervolume convergence, one panel per city ------------------------------
-fig, axes = plt.subplots(1, 5, figsize=(10, 2.2), sharey=False)
-for ax, city in zip(axes, CITIES, strict=True):
-    a = analysis[city]
-    for variant, color, label in (
-        ("regional", RX, "Regional (RX)"),
-        ("uniform", UX, "Uniform (UX)"),
-    ):
-        mean = np.array(a[variant]["convergence_mean"])
-        sd = np.array(a[variant]["convergence_sd"])
-        gens = np.arange(mean.size) * 10
-        gens[-1] = 300
-        ax.plot(gens, mean, color=color, lw=2, label=label)
-        ax.fill_between(gens, mean - sd, mean + sd, color=color, alpha=0.18, lw=0)
-    ax.set_title(NAMES[city], fontsize=9, color=INK)
-    ax.set_xlabel("Generation")
-    ax.set_xlim(0, 300)
-axes[0].set_ylabel("Hypervolume")
-axes[0].legend(loc="lower right", fontsize=7)
+# Main configuration (the one the service uses) and the 3-objective counterpart
+MAIN = os.environ.get("MAIN_VARIANT", "nsga2-4_regional")
+BASE3 = MAIN.replace("-4_", "-3_")
+NSGA2, NSGA3 = RX, UX  # colour = algorithm, line style = crossover
+
+
+# 1. Hypervolume convergence: rows = 3 / 4 objectives, one panel per city --------
+fig, axes = plt.subplots(2, 5, figsize=(10, 4.2))
+for row, n_obj in enumerate((3, 4)):
+    for ax, city in zip(axes[row], CITIES, strict=True):
+        variants = analysis[city]["variants"]
+        for algorithm, color in (("nsga2", NSGA2), ("nsga3", NSGA3)):
+            for crossover, style in (("regional", "-"), ("uniform", "--")):
+                v = variants.get(f"{algorithm}-{n_obj}_{crossover}")
+                if v is None:
+                    continue
+                mean = np.array(v["convergence_mean"])
+                sd = np.array(v["convergence_sd"])
+                gens = np.arange(mean.size) * 10
+                gens[-1] = 300
+                label = f"{algorithm.upper().replace('NSGA', 'NSGA-')}, {crossover}"
+                ax.plot(gens, mean, color=color, ls=style, lw=1.6, label=label)
+                ax.fill_between(gens, mean - sd, mean + sd, color=color, alpha=0.12, lw=0)
+        if row == 0:
+            ax.set_title(NAMES[city], fontsize=9, color=INK)
+        if row == 1:
+            ax.set_xlabel("Generation")
+        ax.set_xlim(0, 300)
+    axes[row][0].set_ylabel(f"HV, {n_obj} objectives")
+axes[0][0].legend(loc="lower right", fontsize=6)
 fig.tight_layout()
 save(fig, "convergence")
 
 
-# 2. Fronts: containers vs unserved, colour = inequity (median-HV regional run) -
-def median_run(city, variant="regional"):
-    hv = analysis[city][variant]["hv"]
+def median_run(city, variant=MAIN):
+    hv = analysis[city]["variants"][variant]["hv"]
     files = sorted(glob.glob(os.path.join(RESULTS, f"{city}_{variant}_*.npz")))
     i = int(np.argsort(hv)[len(hv) // 2])
     return np.load(files[i], allow_pickle=True)
 
 
-fig, axes = plt.subplots(1, 5, figsize=(10, 2.4))
-vmax = max(max(np.array(analysis[c]["current"])[2] for c in CITIES), 0.12) * 100
-for ax, city in zip(axes, CITIES, strict=True):
-    run = median_run(city)
-    F = run["front"]
+# 2. Today's number of containers: inequity vs mean distance ------------------
+def k0_layouts(city, variant):
+    """Layouts of all runs with today's size and no more unserved people than today."""
     cur = analysis[city]["current"]
-    sc = ax.scatter(
-        F[:, 0],
-        F[:, 1] / 1000,
-        c=F[:, 2] * 100,
-        cmap=BLUES,
-        vmin=0,
-        vmax=vmax,
-        s=14,
-        edgecolors="white",
-        linewidths=0.6,
-        zorder=3,
-    )
-    ax.scatter(
-        [cur[0]],
-        [cur[1] / 1000],
-        c=[cur[2] * 100],
-        cmap=BLUES,
-        vmin=0,
-        vmax=vmax,
-        marker="D",
-        s=36,
-        edgecolors=INK,
-        linewidths=1,
-        zorder=4,
-    )
-    ax.annotate(
-        "current",
-        (cur[0], cur[1] / 1000),
-        xytext=(6, 6),
-        textcoords="offset points",
-        fontsize=7,
-        color=INK2,
-    )
-    ax.set_title(NAMES[city], fontsize=9, color=INK)
-    ax.set_xlabel("Containers ($f_1$)")
-axes[0].set_ylabel("Unserved people ($f_2$, thousands)")
-cbar = fig.colorbar(sc, ax=axes, shrink=0.85, pad=0.01)
-cbar.set_label("Spatial inequity ($f_3$, points)", color=INK2)
-cbar.outline.set_visible(False)
-save(fig, "fronts")
+    rows = []
+    for f in sorted(glob.glob(os.path.join(RESULTS, f"{city}_{variant}_*.npz"))):
+        F = np.load(f, allow_pickle=True)["front"]
+        rows.append(F[(F[:, 0] == cur[0]) & (F[:, 1] <= cur[1])])
+    return np.vstack(rows)
+
+
+def pareto_2d(points):
+    """Non-dominated points (minimising both columns), sorted by the first."""
+    points = points[np.lexsort((points[:, 1], points[:, 0]))]
+    keep, best = [], np.inf
+    for x, y in points:
+        if y < best:
+            keep.append((x, y))
+            best = y
+    return np.array(keep)
+
+
+fig, axes = plt.subplots(1, 5, figsize=(10, 2.7))
+for ax, city in zip(axes, CITIES, strict=True):
+    a = analysis[city]
+    cur = a["current"]
+    for variant, color, label in ((BASE3, UX, "3 objectives"), (MAIN, RX, "4 objectives")):
+        F = k0_layouts(city, variant)
+        xy = np.column_stack((F[:, 3], F[:, 2] * 100))
+        ax.scatter(xy[:, 0], xy[:, 1], s=4, c=color, alpha=0.25, lw=0, zorder=2)
+        nd = pareto_2d(xy)
+        ax.plot(
+            nd[:, 0],
+            nd[:, 1],
+            color=color,
+            lw=1.6,
+            marker="o",
+            ms=3.5,
+            zorder=3,
+            label=f"{label} (30 runs, non-dominated)",
+        )
+    ax.scatter([cur[3]], [cur[2] * 100], marker="D", s=30, c=INK, zorder=4, label="Current")
+    if "single" in a:
+        s = a["single"]
+        ax.scatter(
+            [s["mean_distance"]],
+            [s["inequity"] * 100],
+            marker="s",
+            s=30,
+            facecolors="white",
+            edgecolors=INK,
+            linewidths=1.2,
+            zorder=4,
+            label="Single-objective",
+        )
+    ax.set_title(f"{NAMES[city]} ($k_0={int(cur[0])}$)", fontsize=9, color=INK)
+    ax.set_xlabel("Mean distance (m)")
+axes[0].set_ylabel("Spatial inequity (points)")
+handles, labels = axes[0].get_legend_handles_labels()
+fig.legend(handles, labels, loc="lower center", ncol=4, fontsize=7, bbox_to_anchor=(0.5, -0.06))
+fig.tight_layout(rect=(0, 0.06, 1, 1))
+save(fig, "tradeoff_k0")
 
 
 # 3. Map of the neighbourhood unserved share: current vs a front layout (Valencia)
@@ -145,9 +171,19 @@ for city in ("valencia", "donostia"):
     p = load(city)
     k0 = p.current_containers
     cur_ev = p.evaluate_current(1000)
-    run = median_run(city)
-    F, layouts = run["front"], run["layouts"]
     cur = analysis[city]["current"]
+    # the run whose fairest layout with today's size (and no more unserved people)
+    # has the median inequity, and that layout
+    candidates = []
+    for f in sorted(glob.glob(os.path.join(RESULTS, f"{city}_{MAIN}_*.npz"))):
+        run = np.load(f, allow_pickle=True)
+        F = run["front"]
+        ok = np.flatnonzero((F[:, 0] == k0) & (F[:, 1] <= cur[1]))
+        if ok.size:
+            candidates.append((F[ok, 2].min(), f))
+    candidates.sort()
+    run = np.load(candidates[len(candidates) // 2][1], allow_pickle=True)
+    F, layouts = run["front"], run["layouts"]
     ok = np.flatnonzero((F[:, 0] == k0) & (F[:, 1] <= cur[1]))
     pick = ok[np.argmin(F[ok, 2])] if ok.size else int(np.argmin(np.abs(F[:, 0] - k0)))
     new_ev = p.evaluate(np.asarray(layouts[pick], dtype=int), 1000)

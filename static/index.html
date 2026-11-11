@@ -54,7 +54,7 @@
                     <div class="select is-small is-fullwidth">
                         <select id="kind">
                             <option value="single">One layout for a number of containers</option>
-                            <option value="pareto">Trade-off: containers, unserved people and fairness</option>
+                            <option value="pareto">Trade-off: containers, unserved people, fairness and distance</option>
                         </select>
                     </div>
                 </div>
@@ -93,8 +93,8 @@
                 </details>
                 <button id="optimize" class="button is-primary is-small is-fullwidth" type="submit">Optimize</button>
                 <p class="help is-hidden" id="pareto-help">A trade-off returns several layouts: for each
-                    number of containers, from fewest people left without capacity to the fairest
-                    spread of them between neighbourhoods. Pick one to see it on the map.</p>
+                    number of containers, from the closest to people to the fairest spread of the
+                    shortage between neighbourhoods. Pick one to see it on the map.</p>
                 <p class="help">Jobs run one at a time on the server. If another one is running, yours waits in the queue.</p>
             </form>
         </aside>

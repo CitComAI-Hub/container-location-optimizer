@@ -44,26 +44,30 @@ Overload stays at its minimum: 350 containers × 1000 people only cover 44 % of 
 
 ### Variant: the trade-off (multi-objective)
 
-How many containers are worth it, and is the shortage fair? Instead of one layout for *k* containers, a **trade-off**
-job returns a Pareto front of layouts with between *k*<sub>min</sub> and *k*<sub>max</sub> containers (half and 1.5
-times today's by default, in 11 steps plus today's number). It minimises, together:
+How many containers are worth it, is the shortage fair, and how far do people walk? Instead of one layout for *k*
+containers, a **trade-off** job returns a Pareto front of layouts with between *k*<sub>min</sub> and *k*<sub>max</sub>
+containers (half and 1.5 times today's by default, in 11 steps plus today's number). It minimises, together:
 
 1. **containers**,
 2. **people above capacity** (as above),
 3. **unfairness**: how unequally the people above capacity are spread between neighbourhoods. The area is cut into
    500 m cells; the neighbourhood of a cell is every cell within 1 km. Unfairness is the population-weighted standard
    deviation, between neighbourhoods, of the share of people above capacity. It is 0 when every neighbourhood carries
-   the same share, and grows when the shortage piles up in some of them.
+   the same share, and grows when the shortage piles up in some of them,
+4. **mean distance** to the nearest container.
 
-The front has, for each number of containers, layouts from the fewest people above capacity to the fairest. The UI
-lists them, marks with ★ those that beat today's layout with no more containers, and draws the one picked.
+The front has, for each number of containers, layouts from the most accessible to the fairest. The UI lists them,
+marks with ★ those that beat today's layout with no more containers, and draws the one picked.
 
 The algorithm is NSGA-II on sets of sites. Its crossover is **regional**: a child takes one parent's sites inside a
 random disc and the other's outside it, so it inherits two spatially coherent partial layouts. Mutation moves sites to
-nearby candidates and changes the number of containers. With 300 generations it takes about 40 s for Donostia and
-100 s for Valencia on one core. On five Spanish cities (30 runs each, see [`experiments/`](./experiments)), the
-regional crossover gives better fronts than the uniform one in all of them, and with today's number of containers the
-front always has a layout with no more people above capacity and 2 to 8 times less unfairness than today's.
+nearby candidates and changes the number of containers. With 300 generations it takes about 45 s for Donostia and
+100 s for Valencia on one core.
+
+On five Spanish cities (1,200 runs, see [`experiments/`](./experiments)): the regional crossover gives better fronts
+than the uniform one in every city and setting; NSGA-III is no better than NSGA-II, with three or four objectives;
+and with today's number of containers every front has layouts better than today's in people above capacity,
+unfairness (2 to 7 times less) and mean distance at once.
 
 Unfairness replaces the Moran's I of an earlier version of this method, which turned out to be ill-posed as an
 objective: on the containers themselves, it is −1 for any layout of 2 containers and within ±0.15 for any realistic one.

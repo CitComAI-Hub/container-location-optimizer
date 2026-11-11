@@ -1,5 +1,5 @@
 """Multi-objective variant: the trade-off between how many containers, how many
-people they leave unserved and how fairly that is spread.
+people they leave unserved, how fairly that is spread and how far people walk.
 
 Instead of one layout for a fixed number of containers, it returns a Pareto
 front of layouts with between ``min_containers`` and ``max_containers``
@@ -9,9 +9,8 @@ containers. Every objective is minimised:
 2. **unserved**: people above the capacity of their container (the overload of
    the single-objective algorithm),
 3. **inequity**: how unequally the unserved are spread between neighbourhoods
-   (:mod:`services.equity`).
-
-The mean and 95th-percentile distances are reported for every layout.
+   (:mod:`services.equity`),
+4. **mean distance** to the nearest container (``distance=True``, the default).
 
 The algorithm is NSGA-II (non-dominated sorting, crowding distance, elitist
 survival) on sets of candidate indices of variable size:
@@ -21,10 +20,16 @@ survival) on sets of candidate indices of variable size:
   spatially coherent partial layouts instead of a scatter of single sites;
   *uniform* crossover (keep the common sites, take each other site with
   probability 1/2) is the classic alternative,
-- mutation moves sites to a nearby candidate, adds a site next to an
-  overloaded one or removes the least loaded one,
-- the current layout (trimmed or extended to the allowed range) is seeded into
-  the first population.
+- mutation moves sites to a nearby candidate, and sometimes changes the
+  number of containers (adding next to the most loaded sites or removing the
+  least loaded),
+- the sizes are restricted to ``levels`` evenly spaced values plus today's, so
+  layouts of the same size compete with each other,
+- the current layout is seeded into the first population.
+
+NSGA-III survival (``algorithm="nsga3"``, pymoo) is available for comparison;
+on five cities it was no better than NSGA-II, with three or four objectives
+(see experiments/).
 """
 
 import time
@@ -36,7 +41,7 @@ import numpy as np
 from services.equity import Neighbourhoods, pixel_unserved
 from services.problem import Problem
 
-OBJECTIVES = ("containers", "unserved", "inequity")
+OBJECTIVES = ("containers", "unserved", "inequity", "mean_distance")
 
 
 @dataclass(frozen=True)
@@ -54,6 +59,8 @@ class ParetoParameters:
     resize: float = 0.2  # probability that a mutation also changes the number of containers
     levels: int = 11  # allowed numbers of containers, evenly spaced in the range (0: all)
     region_share: tuple[float, float] = (0.1, 0.5)  # share of candidates in the disc
+    distance: bool = True  # 4th objective: mean distance to the nearest container
+    algorithm: str = "nsga2"  # or "nsga3" (reference-direction survival; needs pymoo)
     cell: float = 500.0  # equity: cell size (m)
     radius: float = 1000.0  # equity: neighbourhood radius (m)
     time_limit: float | None = None
@@ -103,6 +110,9 @@ class ParetoAlgorithm:
             )
         if params.crossover not in ("regional", "uniform"):
             raise ValueError("crossover must be 'regional' or 'uniform'")
+        if params.algorithm not in ("nsga2", "nsga3"):
+            raise ValueError("algorithm must be 'nsga2' or 'nsga3'")
+        self.n_objectives = 4 if params.distance else 3
         self.problem = problem
         self.params = params
         self.rng = np.random.default_rng(params.seed)
@@ -146,7 +156,10 @@ class ParetoAlgorithm:
             # would shelter unfair layouts from layouts as good but fairer
             step = max(1.0, self.params.service_level / 10)
             unserved = np.floor(m["unserved"] / step) * step
-            f = np.array([m["containers"], unserved, m["inequity"]], dtype=float)
+            f = [m["containers"], unserved, m["inequity"]]
+            if self.params.distance:
+                f.append(round(m["evaluation"].mean_distance, 1))
+            f = np.array(f, dtype=float)
             self._cache[key] = (f, m["evaluation"].loads)
         return self._cache[key]
 
@@ -268,6 +281,43 @@ class ParetoAlgorithm:
             crowd[front] = crowding_distance(F[front])
         return rank, crowd
 
+    def _survive(self, F: np.ndarray, n: int) -> np.ndarray:
+        """Indices of the n survivors among F."""
+        if self.params.algorithm == "nsga3":
+            return self._nsga3_survival(F, n)
+        survivors: list[int] = []
+        for front in non_dominated_fronts(F):
+            if len(survivors) + front.size <= n:
+                survivors.extend(front.tolist())
+            else:
+                cd = crowding_distance(F[front])
+                survivors.extend(
+                    front[np.argsort(-cd, kind="stable")[: n - len(survivors)]].tolist()
+                )
+                break
+        return np.asarray(survivors, dtype=int)
+
+    def _nsga3_survival(self, F: np.ndarray, n: int) -> np.ndarray:
+        """NSGA-III (Deb and Jain, 2014): non-dominated sorting, then niching
+        around Das-Dennis reference directions on the normalised objectives.
+        pymoo's implementation; its state (ideal and nadir points) persists
+        across generations, as in the original algorithm."""
+        from pymoo.algorithms.moo.nsga3 import ReferenceDirectionSurvival
+        from pymoo.core.population import Population
+        from pymoo.core.problem import Problem as PymooProblem
+        from pymoo.util.ref_dirs import get_reference_directions
+
+        if not hasattr(self, "_nsga3"):
+            partitions = {3: 12, 4: 6}[self.n_objectives]  # 91 and 84 directions
+            directions = get_reference_directions(
+                "das-dennis", self.n_objectives, n_partitions=partitions
+            )
+            self._nsga3 = ReferenceDirectionSurvival(directions)
+            self._nsga3_problem = PymooProblem(n_var=1, n_obj=self.n_objectives)
+        population = Population.new(F=F, index=np.arange(len(F)))
+        survivors = self._nsga3.do(self._nsga3_problem, population, n_survive=n)
+        return np.asarray(survivors.get("index"), dtype=int)
+
     def _tournament(self, rank, crowd) -> int:
         i, j = self.rng.choice(len(rank), 2, replace=False)
         if rank[i] != rank[j]:
@@ -286,6 +336,8 @@ class ParetoAlgorithm:
 
         for generation in range(p.generations + 1):
             rank, crowd = self._rank(F)
+            if p.algorithm == "nsga3":
+                crowd = self.rng.random(len(F))
             front = F[rank == 0]
             record = {
                 "generation": generation,
@@ -325,15 +377,7 @@ class ParetoAlgorithm:
                     seen.add(key)
                     merged.append(x)
             MF = np.array([self.objectives(x)[0] for x in merged])
-            survivors: list[int] = []
-            for fr in non_dominated_fronts(MF):
-                if len(survivors) + fr.size <= p.population_size:
-                    survivors.extend(fr.tolist())
-                else:
-                    cd = crowding_distance(MF[fr])
-                    take = p.population_size - len(survivors)
-                    survivors.extend(fr[np.argsort(-cd, kind="stable")[:take]].tolist())
-                    break
+            survivors = self._survive(MF, p.population_size)
             population = [merged[i] for i in survivors]
             F = MF[survivors]
             if len(self._cache) > 100_000:

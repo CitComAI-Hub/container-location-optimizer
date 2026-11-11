@@ -1,6 +1,7 @@
-"""One run of the trade-off algorithm: python run.py CITY CROSSOVER SEED
+"""One run of the trade-off algorithm: python run.py CITY ALGORITHM OBJECTIVES CROSSOVER SEED
 
-Writes results/CITY_CROSSOVER_SEED.npz.
+ALGORITHM nsga2 or nsga3, OBJECTIVES 3 or 4 (4: plus mean distance), CROSSOVER regional or uniform.
+Writes results/CITY_ALGORITHM-OBJECTIVES_CROSSOVER_SEED.npz.
 """
 
 import os
@@ -15,8 +16,14 @@ from services.pareto import ParetoAlgorithm, ParetoParameters
 GENS = int(os.environ.get("GENS", 300))
 EVERY = 10
 
-city, cx, seed = sys.argv[1], sys.argv[2], int(sys.argv[3])
-out = os.path.join(RESULTS, f"{city}_{cx}_{seed}.npz")
+city, algorithm, n_obj, cx, seed = (
+    sys.argv[1],
+    sys.argv[2],
+    int(sys.argv[3]),
+    sys.argv[4],
+    int(sys.argv[5]),
+)
+out = os.path.join(RESULTS, f"{city}_{algorithm}-{n_obj}_{cx}_{seed}.npz")
 if os.path.exists(out):
     sys.exit(0)
 p = load(city)
@@ -37,6 +44,8 @@ params = ParetoParameters(
     max_containers=int(round(k0 * 1.5)),
     generations=GENS,
     crossover=cx,
+    algorithm=algorithm,
+    distance=n_obj == 4,
     seed=seed,
 )
 alg = Recorded(p, params)
