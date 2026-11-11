@@ -159,7 +159,11 @@ init=mixed, tiles of 2 in the paper; budget = median time of a 300-generation PX
   best at equal time in Málaga and Sevilla.
 
 Service defaults since then: partition, mating=size, centroid_moves=0.8, init=mixed, tile=4 (`run.py` keeps the
-first-version operators unless named). Not released yet (would be v1.5).
+first-version operators unless named). **v1.5 deployed 2026-11-12** (data space PR #38, server = DS main 0595643). In
+production (VLCi, 158 oil containers, 8,308 candidates, one CPU at low priority on a shared node) a 300-generation
+trade-off job took 566 s (v1.4: 495 s, v1.3: 104 s; one run each, node load varies). With today's 158 containers its
+front reaches 0.61 inequity points and 190 m mean distance (v1.4: 0.92 and 201 m; v1.3: 0.9 and 207 m). Test job
+"Trade-off v1.5 (prueba)" is in the shared job list.
 
 To verify in the bibliography: Hosage & Goodchild 1986 volume/pages; Cooper 1964 DOI.
 
