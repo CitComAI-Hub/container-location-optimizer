@@ -128,9 +128,12 @@ Valencia 122 s locally (none: 10 s, 20 s).
 ## Open issues and next steps
 
 - **Paper** (`paper/`): not compiled yet (no LaTeX here); compile in Overleaf and review. The co-authors should
-  agree on the framing: the contribution is the equity measure, the 4-objective formulation, the mutation-driven
-  design (ablation) and the bounds; the negative result on recombination includes the graph crossover of Jordán et
-  al. Target suggested in the draft's TODO: *Expert Systems*.
+  agree on the framing: the contribution is the equity measure, the 4-objective formulation, the partition
+  crossover (with same-size mating; why an exact partition does not exist here), the ablations and the bounds; the
+  negative result now covers only *blind* recombination, including the graph crossover of Jordán et al. Paper text
+  updated on branch `feat/partition-crossover` (sections ga, experiments `sec:partition_results`, abstract, intro,
+  literature, conclusions; tables `tab:operators`, `tab:operator_ablation`; 3 new references to check: Whitley et al.
+  2009, Tinós et al. 2015, Alp et al. 2003). The k0, bounds and map results are still those of no crossover. Target suggested in the draft's TODO: *Expert Systems*.
 - **Service**: the UI of the trade-off jobs has not been checked in a browser (test jobs "Trade-off v1.2 (prueba)" and "Trade-off v1.3 (prueba)" are in the shared job list).
   The single-objective GA is 16 % above the best known mean distance in Valladolid: the alternating local search of
   `experiments/bounds.py` could polish its result.

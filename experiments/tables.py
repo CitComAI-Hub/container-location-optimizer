@@ -304,6 +304,85 @@ out.append(r"""\end{tabular}
 \end{table}
 """)
 
+# Partition crossover (analyse_operators.py) --------------------------------------
+operators_file = os.path.join(RESULTS, "operators.json")
+if os.path.exists(operators_file):
+    ops = json.load(open(operators_file))["cities"]
+    P = "partition+mating=size"
+
+    def at_time(c, v):
+        s = ops[c]["variants"][v]["summary"]["hv_at_time"]
+        return f"{s['mean']:.4f} ({s['sd']:.4f})"
+
+    def vs(c, v):
+        """A12 of the partition crossover against v, at the same time."""
+        return mark(ops[c]["variants"][v]["reference_vs"]["hv_at_time"])
+
+    out.append(r"""\begin{table}[htbp]
+\centering
+\small
+\caption{Recombination at the same computing time (NSGA-II, four objectives): HV4 of the front reached within the median time of a 300-generation run with the partition crossover (last column), mean (standard deviation) of 30 runs. No crossover with 300 and with 1,200 generations, the partition crossover (PX) and the union crossover of Alp, Erkut and Drezner (UX-AED), both mating parents with the same number of containers. $\hat{A}_{12}$: probability that a run with the partition crossover beats a run of the other variant (Holm-corrected Mann--Whitney U within each city; $^\dagger$: not significant).}
+\label{tab:operators}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lccccccc}
+\toprule
+& \multicolumn{2}{c}{\textbf{No crossover}} & \textbf{PX} & \multicolumn{2}{c}{$\hat{A}_{12}$ \textbf{of PX against}} & \textbf{UX-AED} & \textbf{Time} \\
+\cmidrule(lr){2-3} \cmidrule(lr){5-6}
+\textbf{City} & 300 gen. & 1,200 gen. & 300 gen. & 1,200 gen. & UX-AED & & (s) \\
+\midrule""")
+    for c in CITIES:
+        r = ops[c]
+        out.append(
+            f"{NAMES[c]} & {at_time(c, 'none')} & {at_time(c, 'none+generations=1200')} & "
+            f"\\textbf{{{at_time(c, P)}}} & {vs(c, 'none+generations=1200')} & "
+            f"{vs(c, 'union+mating=size')} & {at_time(c, 'union+mating=size')} & "
+            f"{r['budgets']['time']:.0f} \\\\"
+        )
+    out.append(r"""\bottomrule
+\end{tabular}}
+\end{table}
+""")
+
+    ablations = [
+        ("partition", "Any mating"),
+        ("partition+mating=size+tile=1.0", "Tiles $\\times 1$"),
+        ("partition+mating=size+tile=4.0", "Tiles $\\times 4$"),
+        ("partition+mating=size+tile_equity=True", "Equity per tile"),
+        ("regional+mating=size+guided_repair=True+region_share=0.001,0.005", "Blind regions"),
+    ]
+    out.append(
+        r"""\begin{table}[htbp]
+\centering
+\small
+\caption{Variants of the partition crossover (PX) at the same computing time as Table~\ref{tab:operators}: HV4, mean of 30 runs, and $\hat{A}_{12}$ of PX against each variant. Any mating: parents of any size; tiles $\times 1$ and $\times 4$: tile side of one and four mean spacings (PX: two); equity per tile: inequity as a fourth criterion in each tile; blind regions: regional crossover with small regions, same-size mating and load-guided repair, i.e., PX without the choice of the better parent.}
+\label{tab:operator_ablation}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lc"""
+        + "cc" * len(ablations)
+        + r"""}
+\toprule
+& \textbf{PX} & """
+        + " & ".join(f"\\multicolumn{{2}}{{c}}{{\\textbf{{{name}}}}}" for _, name in ablations)
+        + r""" \\
+"""
+        + " ".join(f"\\cmidrule(lr){{{3 + 2 * i}-{4 + 2 * i}}}" for i in range(len(ablations)))
+        + r"""
+\textbf{City} & HV4 & """
+        + " & ".join("HV4 & $\\hat{A}_{12}$" for _ in ablations)
+        + r""" \\
+\midrule"""
+    )
+    for c in CITIES:
+        V = ops[c]["variants"]
+        cells = [f"{V[P]['summary']['hv_at_time']['mean']:.4f}"]
+        for v, _ in ablations:
+            cells += [f"{V[v]['summary']['hv_at_time']['mean']:.4f}", vs(c, v)]
+        out.append(f"{NAMES[c]} & " + " & ".join(cells) + r" \\")
+    out.append(r"""\bottomrule
+\end{tabular}}
+\end{table}
+""")
+
 os.makedirs(os.path.join(HERE, "figures"), exist_ok=True)
 with open(os.path.join(HERE, "figures", "tables.tex"), "w") as file:
     file.write("\n".join(out))

@@ -1,0 +1,20 @@
+\begin{table}[htbp]
+\centering
+\small
+\caption{Variants of the partition crossover (PX) at the same computing time as Table~\ref{tab:operators}: HV4, mean of 30 runs, and $\hat{A}_{12}$ of PX against each variant. Any mating: parents of any size; tiles $\times 1$ and $\times 4$: tile side of one and four mean spacings (PX: two); equity per tile: inequity as a fourth criterion in each tile; blind regions: regional crossover with small regions, same-size mating and load-guided repair, i.e., PX without the choice of the better parent.}
+\label{tab:operator_ablation}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lccccccccccc}
+\toprule
+& \textbf{PX} & \multicolumn{2}{c}{\textbf{Any mating}} & \multicolumn{2}{c}{\textbf{Tiles $\times 1$}} & \multicolumn{2}{c}{\textbf{Tiles $\times 4$}} & \multicolumn{2}{c}{\textbf{Equity per tile}} & \multicolumn{2}{c}{\textbf{Blind regions}} \\
+\cmidrule(lr){3-4} \cmidrule(lr){5-6} \cmidrule(lr){7-8} \cmidrule(lr){9-10} \cmidrule(lr){11-12}
+\textbf{City} & HV4 & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ \\
+\midrule
+Donostia & 0.6257 & 0.5879 & 1.00 & 0.6146 & 0.93 & 0.6256 & 0.49$^\dagger$ & 0.6221 & 0.70 & 0.5836 & 1.00 \\
+Valladolid & 0.4451 & 0.4277 & 1.00 & 0.4378 & 0.82 & 0.4514 & 0.16 & 0.4418 & 0.68 & 0.4213 & 1.00 \\
+Valencia & 0.5359 & 0.5060 & 1.00 & 0.5224 & 0.99 & 0.5392 & 0.21 & 0.5297 & 0.89 & 0.4962 & 1.00 \\
+Málaga & 0.6121 & 0.5804 & 1.00 & 0.6086 & 0.75 & 0.6134 & 0.38$^\dagger$ & 0.6163 & 0.19 & 0.5780 & 1.00 \\
+Sevilla & 0.6171 & 0.5859 & 1.00 & 0.6083 & 0.92 & 0.6160 & 0.56$^\dagger$ & 0.6184 & 0.38$^\dagger$ & 0.5762 & 1.00 \\
+\bottomrule
+\end{tabular}}
+\end{table}
