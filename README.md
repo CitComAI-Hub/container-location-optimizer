@@ -61,17 +61,17 @@ marks with ★ those that beat today's layout with no more containers, and draws
 
 The algorithm is NSGA-II on sets of sites. Its crossover cuts the city into tiles and takes each tile from the
 parent that does better there (fewer containers, unserved people and walking distance), between parents with the same
-number of containers; its mutation moves sites to nearby candidates and changes the number of containers where loads
-say it matters most (adding next to the most loaded containers, removing the least loaded). With 300 generations it
-takes about 30 s for Donostia and 2 minutes for Valencia on one core (`crossover="none"`: 10 s and 20 s).
+number of containers, and repairs the children by the loads of the containers. Its mutation moves sites towards the
+centre of the people they serve and changes the number of containers where loads say it matters most. Part of the first
+population is seeded where people live, or as cells of equal population. With 300 generations it takes about 30 s for
+Donostia and 100 s for Valencia on one core.
 
-On five Spanish cities (more than 5,000 runs, see [`experiments/`](./experiments) and [RESEARCH.md](./RESEARCH.md)):
-the discrete set of sizes and the load-guided resizing are essential; NSGA-III does not improve on NSGA-II; blind
-crossovers (uniform, regional or graph crossover, even tuned) are no better than mutation alone, while the partition
-crossover gives better fronts than mutation alone with four times as many generations in the same time, in every city;
-and with today's number of containers every front has layouts better than today's in people above capacity,
-unfairness (2 to 7 times less) and mean distance at once. The most accessible fair layouts are within 6–9 % of the best
-known mean distance (a Lagrangian bound of the p-median problem brackets it within 6 %).
+On five Spanish cities (more than 10,000 runs, see [`experiments/`](./experiments) and [RESEARCH.md](./RESEARCH.md)),
+in the same computing time: this configuration gives fronts 4–10 % better (hypervolume) than mutation alone and 3–11 %
+better than seven crossovers of the literature as published; same-size mating and load-guided repair are what make
+recombination work; and the equal-population seeds alone are fairer and closer than today's layouts. With today's
+number of containers every front has layouts better than today's in people above capacity, unfairness and mean distance
+at once.
 
 Unfairness replaces the Moran's I of an earlier version of this method, which turned out to be ill-posed as an
 objective: on the containers themselves, it is −1 for any layout of 2 containers and within ±0.15 for any realistic one.

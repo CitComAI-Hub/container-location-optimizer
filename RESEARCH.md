@@ -128,6 +128,41 @@ each, not a comparison). Test job "Trade-off v1.4 (prueba)" is in the shared job
 (`run.py` keeps `mating=any` unless named, so earlier runs stay reproducible). 300 generations: Donostia 31 s,
 Valencia 122 s locally (none: 10 s, 20 s).
 
+## Final operator study: PX+ against the literature (2026-11-11/12)
+
+Screening (3 cities × 10 seeds, `~/container-location/results_scr/`): centroid moves (Cooper's step) are the clear
+gain (+1.5–3.9 % HV4 at equal time, larger with a larger share: 0.8 chosen); balance moves and random tile size do not
+help; demand seeding (population-weighted k-means++) only shortens walks, balanced seeding (recursive bisection into
+equal-population cells) is fair and close by itself.
+
+Final study (5 cities × 30 seeds, 33 variants, 4,950 runs, Slurm 177851–4, 181775, 181878, 181941; raw runs
+`~/container-location/results_final/`; summary `experiments/summary/{operators,seeds,components}.json`; the first
+operator study is `summary/operators_first_study.json`). PX+ = partition + mating=size + centroid_moves=0.8 +
+init=mixed, tiles of 2 in the paper; budget = median time of a 300-generation PX+ run (50–156 s).
+
+- PX+ vs earlier configuration (no crossover): +10.7–14.7 % (300 gen.), +4.1–9.5 % (1,200 gen., same time).
+- vs the literature as published (uniform, one-point, half-plane, quadrant, regional, graph, union): −2.8 to −11.4 % for
+  them, A12 ≥ 0.99 everywhere.
+- With same-size mating + load-guided repair (+MR), every crossover improves; half-plane and quadrant reach PX+
+  (±1 %; half-plane slightly better in Valencia, Málaga, Sevilla). Small-region ones (regional, graph) stay 1.4–2.7 %
+  below, uniform/one-point 4–6 %, union 2.7–4.5 % (cost).
+- No crossover with the new mutation and initialisation: within 0.8 % of PX+ (better in Sevilla by 0.3 %).
+- Ablation: any mating −4.3 to −6.9 %; no centroid moves −1.8 to −2.6 %; random init ≈ (only Málaga −0.5 %);
+  tiles of 1 −1.2 to −2.4 %; tiles of 4–8 equal or up to +1.4 % (the service uses 4); exact components −0.7 to −3.3 %;
+  random-line regions ≈; equity per tile mixed.
+- Exact decomposition (components.json): median 3–9 components, 8–28 % of pairs a single one, the largest holds
+  53–73 % of the differing sites. **Corrects** the earlier "always one component" (that came from poorly converged
+  fronts).
+- Balanced seeds alone (11–34 ms) beat today's layouts in inequity (1.2–8.7 vs 7.0–12.5 points) and distance
+  (28–123 m less) in every city, and in unserved people in 4 (Málaga: 13 people more).
+- Fair extreme: none-1200 (old mutation) still has the fairest layouts; equity per tile + p_c 0.5 + 900 gen. is the
+  best at equal time in Málaga and Sevilla.
+
+Service defaults since then: partition, mating=size, centroid_moves=0.8, init=mixed, tile=4 (`run.py` keeps the
+first-version operators unless named). Not released yet (would be v1.5).
+
+To verify in the bibliography: Hosage & Goodchild 1986 volume/pages; Cooper 1964 DOI.
+
 ## Open issues and next steps
 
 - **Paper** (`paper/`): not compiled yet (no LaTeX here); compile in Overleaf and review. The co-authors should

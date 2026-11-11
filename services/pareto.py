@@ -18,21 +18,24 @@ survival) on sets of candidate indices of variable size:
 - the partition crossover cuts the city into tiles and takes each tile from
   the parent that does better there (fewer containers, unserved people and
   distance); both parents have the same number of containers (``mating``),
-- mutation moves sites, mostly to a nearby candidate, and sometimes changes
-  the number of containers, adding next to the most loaded sites or removing
-  the least loaded,
+- mutation moves sites, mostly towards the centre of the people they serve
+  (``centroid_moves``) and otherwise to a nearby candidate, and sometimes
+  changes the number of containers, adding next to the most loaded sites or
+  removing the least loaded,
 - the sizes are restricted to ``levels`` evenly spaced values plus today's, so
   layouts of the same size compete with each other,
 - unserved people are compared in steps of a tenth of the service level,
-- the current layout is seeded into the first population.
+- the first population holds the current layout and, besides random ones,
+  layouts seeded where people live and layouts of equal-population cells
+  (``init="mixed"``).
 
-On five cities (see experiments/ and RESEARCH.md), the partition crossover
-gives better fronts than mutation alone in the same time (with four times
-as many generations), and than the union crossover of Alp, Erkut and
-Drezner. Blind crossovers (uniform, regional, the graph crossover of Jordán
-et al.) were no better than mutation alone; they remain available
-(``crossover``), as does ``crossover="none"``. NSGA-III survival
-(``algorithm="nsga3"``, pymoo) was no better than NSGA-II either.
+On five cities (see experiments/ and RESEARCH.md), this configuration gives
+better fronts in the same time than mutation alone (the previous default)
+and than seven crossovers of the literature (uniform, one-point, half-plane,
+quadrant, regional, the graph crossover of Jordán et al. and the union
+crossover of Alp, Erkut and Drezner). They remain available (``crossover``),
+as does ``crossover="none"``. NSGA-III survival (``algorithm="nsga3"``,
+pymoo) was no better than NSGA-II.
 """
 
 import time
@@ -74,10 +77,10 @@ class ParetoParameters:
     crossover_rate: float = 0.9
     mating: str = "size"  # the second parent has as many containers ("any": not)
     guided_repair: bool = False  # regional/uniform/graph: repair by the loads (else at random)
-    tile: float = 2.0  # partition: side of the tiles, in mean spacings between sites
+    tile: float = 4.0  # partition: side of the tiles, in mean spacings between sites
     # First population: "random", "demand" (k-means++ by population), "balanced"
     # (equal-population cells) or "mixed" (half each), init_share of it seeded so
-    init: str = "random"
+    init: str = "mixed"
     init_share: float = 0.5
     cuts: int = 0  # partition: if > 0, regions cut by this many random lines instead of tiles
     tile_max: float = 0.0  # partition: if > tile, the side is drawn in [tile, tile_max]
@@ -87,7 +90,7 @@ class ParetoParameters:
     moved_share: float = 0.02  # share of its sites a mutation changes
     local_moves: float = 0.8  # share of moves to a neighbour candidate
     resize: float = 0.2  # probability that a mutation also changes the number of containers
-    centroid_moves: float = 0.0  # share of moves to the centre of the people a site serves
+    centroid_moves: float = 0.8  # share of moves to the centre of the people a site serves
     balance: float = 0.0  # probability that a mutation moves the least loaded site next to the most
     levels: int = 11  # allowed numbers of containers, evenly spaced in the range (0: all)
     region_share: tuple[float, float] = (0.001, 0.005)  # share of candidates in the disc

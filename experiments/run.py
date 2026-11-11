@@ -46,6 +46,10 @@ if cx == "regional":
 # Every study mated any two parents unless the name says mating=size (the
 # service now mates parents with the same number of containers)
 extra.setdefault("mating", "any")
+# ... and used the operators of the first version unless named
+extra.setdefault("centroid_moves", 0.0)
+extra.setdefault("init", "random")
+extra.setdefault("tile", 2.0)
 out = os.path.join(RESULTS, f"{city}_{algorithm}-{n_obj}_{cx}{tag}_{seed}.npz")
 if os.path.exists(out):
     sys.exit(0)
