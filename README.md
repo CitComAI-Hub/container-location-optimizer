@@ -59,13 +59,17 @@ containers (half and 1.5 times today's by default, in 11 steps plus today's numb
 The front has, for each number of containers, layouts from the most accessible to the fairest. The UI lists them,
 marks with ★ those that beat today's layout with no more containers, and draws the one picked.
 
-The algorithm is NSGA-II on sets of sites, driven by mutation: it moves sites to nearby candidates and changes the
-number of containers where loads say it matters most (adding next to the most loaded containers, removing the least
-loaded). With 300 generations it takes about 15 s for Donostia and 35 s for Valencia on one core.
+The algorithm is NSGA-II on sets of sites. Its crossover cuts the city into tiles and takes each tile from the
+parent that does better there (fewer containers, unserved people and walking distance), between parents with the same
+number of containers; its mutation moves sites to nearby candidates and changes the number of containers where loads
+say it matters most (adding next to the most loaded containers, removing the least loaded). With 300 generations it
+takes about 30 s for Donostia and 2 minutes for Valencia on one core (`crossover="none"`: 10 s and 20 s).
 
-On five Spanish cities (3,490 runs, see [`experiments/`](./experiments)): the discrete set of sizes and the load-guided
-resizing are essential; neither NSGA-III nor recombination (uniform, regional or graph crossover, even tuned) improves
-on it; and with today's number of containers every front has layouts better than today's in people above capacity,
+On five Spanish cities (more than 5,000 runs, see [`experiments/`](./experiments) and [RESEARCH.md](./RESEARCH.md)):
+the discrete set of sizes and the load-guided resizing are essential; NSGA-III does not improve on NSGA-II; blind
+crossovers (uniform, regional or graph crossover, even tuned) are no better than mutation alone, while the partition
+crossover gives better fronts than mutation alone with four times as many generations in the same time, in every city;
+and with today's number of containers every front has layouts better than today's in people above capacity,
 unfairness (2 to 7 times less) and mean distance at once. The most accessible fair layouts are within 6–9 % of the best
 known mean distance (a Lagrangian bound of the p-median problem brackets it within 6 %).
 

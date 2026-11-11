@@ -113,6 +113,17 @@ Time is the fair budget: the evaluation counter only counts objective evaluation
   choice per tile is what matters. Tile side: 1 worse; 2 and 4 equivalent (4 slightly better in Valladolid/Valencia).
 - Caveat: the fairest layouts of the front are less fair with partition (min inequity ≈ 2× that of none-1200);
   the tile choice ignores inequity (not additive). Gains are in the rest of the front.
+- **Fair extreme** (Slurm 176505, 176807; 600 more runs): `tile_equity=True` (4th criterion per tile: squared
+  deviation of the neighbourhood unserved shares from the parents' mean) lowers min inequity in 4/5 cities
+  (A12 0.69–0.83) but not to none-1200's level, and HV4 is mixed (−1 % in the three smaller cities, +0.3–0.7 %
+  in Málaga/Sevilla). The fair extreme needs search time: `crossover_rate=0.5` + `tile_equity` + 900
+  generations (≈2× the time) matches none-1200's min inequity in every city and has the best final HV4 in
+  Donostia, Málaga and Sevilla; at partition's time budget it is worse in the three smaller cities and better
+  in Málaga/Sevilla. Kept as options; the default is plain partition.
+
+**Service (v1.4, not released yet)**: `ParetoParameters` defaults to `crossover="partition"`, `mating="size"`
+(`run.py` keeps `mating=any` unless named, so earlier runs stay reproducible). 300 generations: Donostia 31 s,
+Valencia 122 s locally (none: 10 s, 20 s).
 
 ## Open issues and next steps
 

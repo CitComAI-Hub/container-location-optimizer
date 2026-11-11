@@ -13,8 +13,11 @@ containers. Every objective is minimised:
 4. **mean distance** to the nearest container (``distance=True``, the default).
 
 The algorithm is NSGA-II (non-dominated sorting, crowding distance, elitist
-survival) on sets of candidate indices of variable size, driven by mutation:
+survival) on sets of candidate indices of variable size:
 
+- the partition crossover cuts the city into tiles and takes each tile from
+  the parent that does better there (fewer containers, unserved people and
+  distance); both parents have the same number of containers (``mating``),
 - mutation moves sites, mostly to a nearby candidate, and sometimes changes
   the number of containers, adding next to the most loaded sites or removing
   the least loaded,
@@ -23,11 +26,12 @@ survival) on sets of candidate indices of variable size, driven by mutation:
 - unserved people are compared in steps of a tenth of the service level,
 - the current layout is seeded into the first population.
 
-There is no recombination by default: on five cities (see experiments/), no
-crossover was better than mutation alone. Uniform crossover and regional
-crossover with large regions were worse; regional crossover with small
-regions (``region_share``) and the graph crossover of Jordán et al. were as
-good. They remain available (``crossover``). NSGA-III survival
+On five cities (see experiments/ and RESEARCH.md), the partition crossover
+gives better fronts than mutation alone in the same time (with four times
+as many generations), and than the union crossover of Alp, Erkut and
+Drezner. Blind crossovers (uniform, regional, the graph crossover of Jordán
+et al.) were no better than mutation alone; they remain available
+(``crossover``), as does ``crossover="none"``. NSGA-III survival
 (``algorithm="nsga3"``, pymoo) was no better than NSGA-II either.
 """
 
@@ -55,12 +59,13 @@ class ParetoParameters:
     service_level: float = 1000
     generations: int = 200
     population_size: int = 100
-    crossover: str = "none"  # or "partition", "union", "regional", "uniform", "graph"
+    crossover: str = "partition"  # or "none", "union", "regional", "uniform", "graph"
     crossover_rate: float = 0.9
-    mating: str = "any"  # or "size": the second parent has the same number of containers
+    mating: str = "size"  # the second parent has as many containers ("any": not)
     guided_repair: bool = False  # regional/uniform/graph: repair by the loads (else at random)
     tile: float = 2.0  # partition: side of the tiles, in mean spacings between sites
     tile_count: bool = True  # partition: compare the parents in a tile also by their sites
+    tile_equity: bool = False  # partition: ... and by the dispersion of the unserved share
     mutation: float = 0.5  # probability that a child is mutated
     moved_share: float = 0.02  # share of its sites a mutation changes
     local_moves: float = 0.8  # share of moves to a neighbour candidate
@@ -375,9 +380,12 @@ class ParetoAlgorithm:
     def tiles(self, a: np.ndarray, b: np.ndarray):
         """A grid of square tiles at a random offset, of side ``tile`` times
         the mean spacing between the sites of the parents. Returns the tile of
-        each pixel and of each candidate, and the contributions of a and b to
-        each tile as rows (containers, unserved people, distance x people) of
-        the sites and pixels in it."""
+        each candidate and the contributions of a and b to each tile as rows
+        (containers, unserved people, distance x people) of the sites and
+        pixels in it; with ``tile_equity``, also the population-weighted
+        squared deviation of the unserved share of its neighbourhoods (see
+        services.equity) from the mean of both parents: inequity is not
+        additive, but this is its share in the tile."""
         p = self.problem
         area = np.prod(np.ptp(p.pixels_xy, axis=0)) or 1.0
         side = self.params.tile * np.sqrt(area / max(1, (a.size + b.size) / 2))
@@ -396,16 +404,37 @@ class ParetoAlgorithm:
 
         def contributions(x):
             unserved, distance = self._pixel_measures(x)
-            return np.stack(
-                [
-                    np.bincount(site_tile[x], minlength=n),
-                    np.bincount(pixel_tile, weights=unserved, minlength=n),
-                    np.bincount(pixel_tile, weights=p.people * distance, minlength=n),
-                ],
-                axis=1,
-            )
+            return [
+                np.bincount(site_tile[x], minlength=n),
+                np.bincount(pixel_tile, weights=unserved, minlength=n),
+                np.bincount(pixel_tile, weights=p.people * distance, minlength=n),
+            ]
 
-        return site_tile, contributions(a), contributions(b)
+        ca, cb = contributions(a), contributions(b)
+        if self.params.tile_equity:
+            nb = self.neighbourhoods
+            if not hasattr(self, "_cell_xy"):
+                self._cell_xy = (
+                    np.column_stack(
+                        [
+                            np.bincount(nb.pixel_cell, weights=p.people * p.pixels_xy[:, i])
+                            for i in (0, 1)
+                        ]
+                    )
+                    / np.maximum(nb.cell_people, 1e-9)[:, None]
+                )
+            cell_tile = np.searchsorted(keys, tile_of(self._cell_xy))
+            cell_tile = np.minimum(cell_tile, n - 1)  # a centre in no pixel's tile: rare
+            w = nb.cell_people
+            shares = [
+                (nb.weights @ nb.unserved_cells(self._pixel_measures(x)[0]))
+                / nb.neighbourhood_people
+                for x in (a, b)
+            ]
+            mean = np.mean([w @ sh / w.sum() for sh in shares])
+            for c, sh in zip((ca, cb), shares, strict=True):
+                c.append(np.bincount(cell_tile, weights=w * (sh - mean) ** 2, minlength=n))
+        return site_tile, np.stack(ca, axis=1), np.stack(cb, axis=1)
 
     def _partition(self, a: np.ndarray, b: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Partition crossover: cut the city into tiles (see :meth:`tiles`) and

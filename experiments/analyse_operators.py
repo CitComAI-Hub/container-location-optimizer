@@ -94,6 +94,21 @@ def main():
                 "min_inequity": [float(r["front"][:, 2].min()) for r in rs],
                 "min_distance": [float(r["front"][:, 3].min()) for r in rs],
             }
+            # With today's number of containers: layouts no worse than today in
+            # unserved people and inequity (and distance)
+            at_k0 = [r["front"][r["front"][:, 0] == k0] for r in rs]
+            better = [f[(f[:, 1] <= ev.overload) & (f[:, 2] <= cur_ineq)] for f in at_k0]
+            entry["k0_better_than_current"] = float(np.mean([len(b) > 0 for b in better]))
+            entry["k0_better_incl_distance"] = float(
+                np.mean([bool((b[:, 3] <= ev.mean_distance).any()) for b in better])
+            )
+            if any(len(b) for b in better):
+                entry["k0_fairest"] = np.median(
+                    [b[b[:, 2].argmin()] for b in better if len(b)], 0
+                ).tolist()
+                entry["k0_closest"] = np.median(
+                    [b[b[:, 3].argmin()] for b in better if len(b)], 0
+                ).tolist()
             for key, budget in budgets.items():
                 if budget is not None:
                     entry[f"hv_at_{key}"] = [at_budget(r, key, budget) for r in rs]
@@ -117,6 +132,20 @@ def main():
                         **t,
                         "p_holm": float(padj),
                     }
+        # The reference against every other variant
+        if REFERENCE in runs:
+            for measure in ("hv", "hv_at_evaluations", "hv_at_time"):
+                others = [v for v in res["variants"] if v != REFERENCE]
+                tests = [
+                    compare(res["variants"][REFERENCE][measure], res["variants"][v][measure])
+                    for v in others
+                ]
+                for v, t, padj in zip(others, tests, holm([t["p"] for t in tests]), strict=True):
+                    res["variants"][v].setdefault("reference_vs", {})[measure] = {
+                        **t,
+                        "p_holm": float(padj),
+                    }
+        res["current"] = [k0, ev.overload, cur_ineq, ev.mean_distance]
         out["cities"][city] = res
         print(city, {k: round(v) if v else v for k, v in budgets.items()})
         for v, e in res["variants"].items():

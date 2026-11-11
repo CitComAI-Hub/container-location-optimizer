@@ -43,6 +43,9 @@ tag = "".join(f"+{arg}" for arg in sys.argv[6:])
 # candidates (the service now defaults to no crossover and smaller regions)
 if cx == "regional":
     extra.setdefault("region_share", (0.1, 0.5))
+# Every study mated any two parents unless the name says mating=size (the
+# service now mates parents with the same number of containers)
+extra.setdefault("mating", "any")
 out = os.path.join(RESULTS, f"{city}_{algorithm}-{n_obj}_{cx}{tag}_{seed}.npz")
 if os.path.exists(out):
     sys.exit(0)
