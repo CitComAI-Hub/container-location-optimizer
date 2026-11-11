@@ -57,7 +57,7 @@ def test_front_is_non_dominated_and_within_the_range(problem):
 
 def test_all_crossovers_keep_the_allowed_sizes(problem):
     for crossover, guided in itertools.product(CROSSOVERS, (False, True)):
-        extra = {"tile_equity": guided} if crossover == "partition" else {}
+        extra = {"tile_equity": guided, "cuts": 2 * guided} if crossover == "partition" else {}
         params = ParetoParameters(
             min_containers=3,
             max_containers=9,

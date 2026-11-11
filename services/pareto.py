@@ -79,6 +79,7 @@ class ParetoParameters:
     # (equal-population cells) or "mixed" (half each), init_share of it seeded so
     init: str = "random"
     init_share: float = 0.5
+    cuts: int = 0  # partition: if > 0, regions cut by this many random lines instead of tiles
     tile_max: float = 0.0  # partition: if > tile, the side is drawn in [tile, tile_max]
     tile_count: bool = True  # partition: compare the parents in a tile also by their sites
     tile_equity: bool = False  # partition: ... and by the dispersion of the unserved share
@@ -495,9 +496,21 @@ class ParetoAlgorithm:
         offset = self.rng.random(2) * side
         lo = p.pixels_xy.min(axis=0) - side
 
-        def tile_of(xy):
-            ij = np.floor((xy - lo + offset) / side).astype(np.int64)
-            return ij[:, 0] * 1_000_003 + ij[:, 1]
+        if self.params.cuts > 0:
+            # Regions between random lines, each through a random candidate
+            through = p.candidates_xy[self.rng.integers(p.size, size=self.params.cuts)]
+            angles = self.rng.uniform(0, np.pi, self.params.cuts)
+            normals = np.column_stack((np.cos(angles), np.sin(angles)))
+
+            def tile_of(xy):
+                sides = ((xy[:, None, :] - through[None]) * normals[None]).sum(2) > 0
+                return (sides * (1 << np.arange(self.params.cuts))).sum(1).astype(np.int64)
+
+        else:
+
+            def tile_of(xy):
+                ij = np.floor((xy - lo + offset) / side).astype(np.int64)
+                return ij[:, 0] * 1_000_003 + ij[:, 1]
 
         keys, inverse = np.unique(
             np.concatenate((tile_of(p.pixels_xy), tile_of(p.candidates_xy))), return_inverse=True

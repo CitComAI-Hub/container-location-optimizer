@@ -183,7 +183,7 @@ if ops:
     ax.invert_yaxis()
     ax.set_xlabel("HV4 at the same time, % over no crossover (baseline), mean of the cities")
     handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles[:2], labels[:2], loc="lower right")
+    ax.legend(handles[:2], labels[:2], loc="upper left", bbox_to_anchor=(0.0, 1.18), ncol=2)
     save(fig, "literature_gain")
 
 seeds = load_json("seeds.json")
