@@ -51,7 +51,7 @@ def save(fig, name):
 
 
 # Main configuration (the one the service uses) and the 3-objective counterpart
-MAIN = os.environ.get("MAIN_VARIANT", "nsga2-4_regional")
+MAIN = os.environ.get("MAIN_VARIANT", "nsga2-4_none")
 BASE3 = MAIN.replace("-4_", "-3_")
 NSGA2, NSGA3 = RX, UX  # colour = algorithm, line style = crossover
 

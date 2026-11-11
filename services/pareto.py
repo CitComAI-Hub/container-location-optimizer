@@ -13,23 +13,22 @@ containers. Every objective is minimised:
 4. **mean distance** to the nearest container (``distance=True``, the default).
 
 The algorithm is NSGA-II (non-dominated sorting, crowding distance, elitist
-survival) on sets of candidate indices of variable size:
+survival) on sets of candidate indices of variable size, driven by mutation:
 
-- *regional* crossover (default): a child takes one parent's sites inside a
-  random disc and the other parent's sites outside it, so it inherits two
-  spatially coherent partial layouts instead of a scatter of single sites;
-  *uniform* crossover (keep the common sites, take each other site with
-  probability 1/2) is the classic alternative,
-- mutation moves sites to a nearby candidate, and sometimes changes the
-  number of containers (adding next to the most loaded sites or removing the
-  least loaded),
+- mutation moves sites, mostly to a nearby candidate, and sometimes changes
+  the number of containers, adding next to the most loaded sites or removing
+  the least loaded,
 - the sizes are restricted to ``levels`` evenly spaced values plus today's, so
   layouts of the same size compete with each other,
+- unserved people are compared in steps of a tenth of the service level,
 - the current layout is seeded into the first population.
 
-NSGA-III survival (``algorithm="nsga3"``, pymoo) is available for comparison;
-on five cities it was no better than NSGA-II, with three or four objectives
-(see experiments/).
+There is no recombination by default: on five cities (see experiments/), no
+crossover was better than mutation alone. Uniform crossover and regional
+crossover with large regions were worse; regional crossover with small
+regions (``region_share``) and the graph crossover of Jordán et al. were as
+good. They remain available (``crossover``). NSGA-III survival
+(``algorithm="nsga3"``, pymoo) was no better than NSGA-II either.
 """
 
 import time
@@ -51,16 +50,16 @@ class ParetoParameters:
     service_level: float = 1000
     generations: int = 200
     population_size: int = 100
-    crossover: str = "regional"  # or "uniform", or "graph" (Jordán et al.)
+    crossover: str = "none"  # or "regional", "uniform", "graph" (Jordán et al.)
     crossover_rate: float = 0.9
     mutation: float = 0.5  # probability that a child is mutated
     moved_share: float = 0.02  # share of its sites a mutation changes
     local_moves: float = 0.8  # share of moves to a neighbour candidate
     resize: float = 0.2  # probability that a mutation also changes the number of containers
     levels: int = 11  # allowed numbers of containers, evenly spaced in the range (0: all)
-    region_share: tuple[float, float] = (0.1, 0.5)  # share of candidates in the disc
+    region_share: tuple[float, float] = (0.001, 0.005)  # share of candidates in the disc
     graph_centres: int = 1  # graph crossover: subgraphs exchanged
-    graph_depth: int = 5  # graph crossover: hops from each centre (Delaunay graph)
+    graph_depth: int = 1  # graph crossover: hops from each centre (Delaunay graph)
     # Switches for the ablation study (all on in the service)
     quantize: bool = True  # compare unserved people in steps of service_level / 10
     guided_resize: bool = True  # resize by the loads of the sites (else at random)
@@ -114,8 +113,8 @@ class ParetoAlgorithm:
             raise ValueError(
                 f"containers must satisfy 1 <= min <= max <= {problem.size} (candidate sites)"
             )
-        if params.crossover not in ("regional", "uniform", "graph"):
-            raise ValueError("crossover must be 'regional', 'uniform' or 'graph'")
+        if params.crossover not in ("none", "regional", "uniform", "graph"):
+            raise ValueError("crossover must be 'none', 'regional', 'uniform' or 'graph'")
         if params.algorithm not in ("nsga2", "nsga3"):
             raise ValueError("algorithm must be 'nsga2' or 'nsga3'")
         self.n_objectives = 4 if params.distance else 3
@@ -404,7 +403,7 @@ class ParetoAlgorithm:
             while len(offspring) < p.population_size:
                 a = population[self._tournament(rank, crowd)]
                 b = population[self._tournament(rank, crowd)]
-                if self.rng.random() < p.crossover_rate:
+                if p.crossover != "none" and self.rng.random() < p.crossover_rate:
                     children = self.crossover(a, b)
                 else:
                     children = (a.copy(), b.copy())

@@ -7,10 +7,14 @@ Reproduce the evaluation of the multi-objective variant (`services/pareto.py`) o
 |---|---|
 | `cities/<city>.json` | Area of study, current used-oil containers and candidate sites (the other containers, from the municipal open data), GHS-POP epoch |
 | `common.py` | Loads a city into the service's `Problem` |
-| `run.py CITY ALGORITHM OBJECTIVES CROSSOVER SEED` | One run (300 generations, 100 individuals, 50–150 % of today's containers): `nsga2` or `nsga3`, 3 or 4 objectives, `regional` or `uniform` crossover → `results/CITY_ALGORITHM-OBJECTIVES_CROSSOVER_SEED.npz` |
+| `run.py CITY ALGORITHM OBJECTIVES CROSSOVER SEED [key=value…]` | One run (300 generations, 100 individuals, 50–150 % of today's containers): `nsga2` or `nsga3`, 3 or 4 objectives, `none`, `regional`, `uniform` or `graph` crossover, and any `ParetoParameters` (e.g. `levels=0`, `region_share=0.001,0.005`) → `results/CITY_ALGORITHM-OBJECTIVES_CROSSOVER[+key=value…]_SEED.npz` |
 | `single.py CITY SEED` | The single-objective algorithm of the service at today's number of containers, for comparison |
 | `moran.py CITY` | Why Moran's I was dropped as an objective (values on random layouts) |
 | `analyse.py` | Hypervolume, statistics and comparison with the current layout → `results/analysis.json` |
+| `analyse_revision.py` | Graph and regional crossover tuning, ablation and sensitivity runs → `revision.json` (in `REVISION_DIR`) |
+| `equity_measures.py` | Robustness of the equity measure to its parameters and comparison with classical measures |
+| `bounds.py` | Lagrangian lower bound and best known solution of the p-median problem at today's size (`slurm/bounds.sbatch`) |
+| `stats_utils.py` | Effect size, Mann–Whitney U and Holm correction shared by the analyses |
 | `figures.py`, `tables.py` | Figures and LaTeX tables of the paper → `figures/` |
 
 ```console
@@ -34,3 +38,19 @@ Every front is scored with three (HV3) and four objectives (HV4), to compare the
 
 Data: containers from the open data portals of València (CC BY 4.0), Donostia, Málaga, Sevilla and Valladolid;
 population GHS-POP R2023A (JRC, CC BY 4.0).
+
+## The studies of the paper
+
+1. Factorial: `nsga2`/`nsga3` × 3/4 objectives × `regional` (regions of 10–50 %)/`uniform` (the commands above).
+2. Recombination (NSGA-II, 4 objectives): tuning on Donostia and Valencia (seeds 1–10) of `regional` with
+   `region_share` from `0.001,0.005` to `0.1,0.5` and of `graph` with `graph_centres` 1/3/10 and `graph_depth` 1–20;
+   then 30 runs per city of `none`, `regional region_share=0.001,0.005` and `graph graph_centres=1 graph_depth=1`, and
+   `nsga2 3 none` for the formulation comparison.
+3. Ablation of `nsga2 4 none`: `levels=0`, `guided_resize=False`, `quantize=False`, `local_moves=0.0`,
+   `seed_current=False`.
+4. Sensitivity: `nsga2 4 regional|uniform` with `cell=250.0 radius=500.0` and `cell=1000.0 radius=2000.0`.
+5. `bounds.py` and `equity_measures.py`.
+
+`analyse.py` expects the runs of studies 1–2 in one directory, the tuned and no-crossover variants named
+`nsga2-4_none`, `nsga2-4_regional-small`, `nsga2-4_graph-small` and `nsga2-3_none` (links to the files of `run.py`);
+`analyse_revision.py` reads the runs of studies 2–4 as `run.py` names them.

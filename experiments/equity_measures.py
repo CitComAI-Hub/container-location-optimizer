@@ -20,7 +20,7 @@ from scipy import stats
 from services.equity import Neighbourhoods, pixel_unserved
 
 SETTINGS = {"250/500": (250.0, 500.0), "500/1000": (500.0, 1000.0), "1000/2000": (1000.0, 2000.0)}
-VARIANT = "nsga2-4_regional"
+VARIANT = os.environ.get("MAIN_VARIANT", "nsga2-4_none")
 
 
 def weighted_gini(values, weights):

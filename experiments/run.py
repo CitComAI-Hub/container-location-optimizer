@@ -36,6 +36,10 @@ for arg in sys.argv[6:]:
     else:
         extra[key] = float(value) if "." in value else int(value)
 tag = "".join(f"+{arg}" for arg in sys.argv[6:])
+# The factorial study used regional crossover with regions of 10-50 % of the
+# candidates (the service now defaults to no crossover and smaller regions)
+if cx == "regional":
+    extra.setdefault("region_share", (0.1, 0.5))
 out = os.path.join(RESULTS, f"{city}_{algorithm}-{n_obj}_{cx}{tag}_{seed}.npz")
 if os.path.exists(out):
     sys.exit(0)

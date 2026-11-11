@@ -59,15 +59,15 @@ containers (half and 1.5 times today's by default, in 11 steps plus today's numb
 The front has, for each number of containers, layouts from the most accessible to the fairest. The UI lists them,
 marks with ★ those that beat today's layout with no more containers, and draws the one picked.
 
-The algorithm is NSGA-II on sets of sites. Its crossover is **regional**: a child takes one parent's sites inside a
-random disc and the other's outside it, so it inherits two spatially coherent partial layouts. Mutation moves sites to
-nearby candidates and changes the number of containers. With 300 generations it takes about 45 s for Donostia and
-100 s for Valencia on one core.
+The algorithm is NSGA-II on sets of sites, driven by mutation: it moves sites to nearby candidates and changes the
+number of containers where loads say it matters most (adding next to the most loaded containers, removing the least
+loaded). With 300 generations it takes about 15 s for Donostia and 35 s for Valencia on one core.
 
-On five Spanish cities (1,200 runs, see [`experiments/`](./experiments)): the regional crossover gives better fronts
-than the uniform one in every city and setting; NSGA-III is no better than NSGA-II, with three or four objectives;
-and with today's number of containers every front has layouts better than today's in people above capacity,
-unfairness (2 to 7 times less) and mean distance at once.
+On five Spanish cities (3,490 runs, see [`experiments/`](./experiments)): the discrete set of sizes and the load-guided
+resizing are essential; neither NSGA-III nor recombination (uniform, regional or graph crossover, even tuned) improves
+on it; and with today's number of containers every front has layouts better than today's in people above capacity,
+unfairness (2 to 7 times less) and mean distance at once. The most accessible fair layouts are within 6–9 % of the best
+known mean distance (a Lagrangian bound of the p-median problem brackets it within 6 %).
 
 Unfairness replaces the Moran's I of an earlier version of this method, which turned out to be ill-posed as an
 objective: on the containers themselves, it is −1 for any layout of 2 containers and within ±0.15 for any realistic one.

@@ -20,6 +20,10 @@ from services.pareto import non_dominated_fronts
 
 ALGORITHMS, OBJECTIVES, CROSSOVERS = ("nsga2", "nsga3"), (3, 4), ("regional", "uniform")
 VARIANTS = [f"{a}-{o}_{x}" for a, o, x in itertools.product(ALGORITHMS, OBJECTIVES, CROSSOVERS)]
+# Recombination study (NSGA-II, 4 objectives): no crossover, and regional / graph
+# crossover with small regions (tuned); the factorial "regional" has large ones
+RECOMBINATION = ["nsga2-3_none", "nsga2-4_none", "nsga2-4_regional-small", "nsga2-4_graph-small"]
+VARIANTS += RECOMBINATION
 
 
 out = {}
@@ -106,11 +110,23 @@ for city in CITIES:
         x, y = f"nsga3-{o}_regional", f"nsga2-{o}_regional"
         if x in V and y in V:
             tests[f"algorithm {o}"] = compare(V[x]["hv"], V[y]["hv"])
-    for a in ALGORITHMS:
-        x, y = f"{a}-4_regional", f"{a}-3_regional"
+    for a in ("nsga2-none", *ALGORITHMS):
+        a, cx = (a.split("-")[0], "none") if a.endswith("none") else (a, "regional")
+        x, y = f"{a}-4_{cx}", f"{a}-3_{cx}"
         if x in V and y in V:
-            tests[f"formulation {a}"] = compare(V[x]["hv4"], V[y]["hv4"])
-            tests[f"formulation-hv3 {a}"] = compare(V[x]["hv3"], V[y]["hv3"])
+            name = a if cx == "regional" else f"{a}-none"
+            tests[f"formulation {name}"] = compare(V[x]["hv4"], V[y]["hv4"])
+            tests[f"formulation-hv3 {name}"] = compare(V[x]["hv3"], V[y]["hv3"])
+    for x in (
+        "nsga2-4_regional-small",
+        "nsga2-4_graph-small",
+        "nsga2-4_regional",
+        "nsga2-4_uniform",
+    ):
+        if x in V and "nsga2-4_none" in V:
+            tests[f"recombination {x.split('_', 1)[1]}"] = compare(
+                V[x]["hv"], V["nsga2-4_none"]["hv"]
+            )
     if tests:
         adjusted = holm([t["p"] for t in tests.values()])
         for t, q in zip(tests.values(), adjusted, strict=True):

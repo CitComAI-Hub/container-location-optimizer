@@ -20,7 +20,7 @@ from stats_utils import compare, holm, summary
 from services.pareto import non_dominated_fronts
 
 REVISION = os.environ.get("REVISION_DIR", RESULTS + "_rev")
-MAIN = "nsga2-4_regional"
+MAIN = os.environ.get("MAIN_VARIANT", "nsga2-4_none")  # base of the ablation
 main = json.load(open(os.path.join(RESULTS, "analysis.json")))
 hv4 = HV(ref_point=np.full(4, 1.1))
 
@@ -76,7 +76,7 @@ for city in CITIES:
 
     # Regional crossover with other region sizes (tuning, 10 seeds; or 30)
     for n in names:
-        m = re.fullmatch(rf"{MAIN}\+region_share=([\d.,]+)", n)
+        m = re.fullmatch(r"nsga2-4_regional\+region_share=([\d.,]+)", n)
         if m:
             hvs = [score(F, lo, hi) for F in runs(REVISION, city, n)]
             target = out["regional_tuning"] if len(hvs) < 30 else out["regional"]
@@ -87,7 +87,7 @@ for city in CITIES:
 
     # Control: no crossover (mutation only)
     for n in names:
-        if n == f"{MAIN}+crossover_rate=0.0":
+        if n == "nsga2-4_regional+crossover_rate=0.0":
             hvs = [score(F, lo, hi) for F in runs(REVISION, city, n)]
             entry = summary(hvs) | {"runs": len(hvs)}
             target = out["no_crossover_tuning"] if len(hvs) < 30 else out["no_crossover"]

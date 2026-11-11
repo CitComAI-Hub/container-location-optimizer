@@ -53,7 +53,7 @@ def test_front_is_non_dominated_and_within_the_range(problem):
 
 
 def test_both_crossovers_keep_the_allowed_sizes(problem):
-    for crossover in ("regional", "uniform", "graph"):
+    for crossover in ("none", "regional", "uniform", "graph"):
         params = ParetoParameters(
             min_containers=3, max_containers=9, levels=3, crossover=crossover, seed=2
         )

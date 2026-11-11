@@ -6,7 +6,7 @@ import os
 
 from common import CITIES, HERE, NAMES, RESULTS
 
-MAIN = os.environ.get("MAIN_VARIANT", "nsga2-4_regional")
+MAIN = os.environ.get("MAIN_VARIANT", "nsga2-4_none")
 BASE3 = MAIN.replace("-4_", "-3_")
 a = json.load(open(os.path.join(RESULTS, "analysis.json")))
 out = []
@@ -60,7 +60,7 @@ out.append(r"""\end{tabular}}
 out.append(r"""\begin{table}[htbp]
 \centering
 \small
-\caption{The fronts of both formulations (NSGA-II, regional crossover) scored in both objective spaces: HV3 (containers, unserved people, inequity) and HV4 (plus mean distance), mean (standard deviation) of 30 runs, with the Vargha--Delaney $\hat{A}_{12}$ of the four-objective against the three-objective formulation (Holm-corrected Mann--Whitney U; $^\dagger$: not significant).}
+\caption{The fronts of both formulations (NSGA-II without crossover) scored in both objective spaces: HV3 (containers, unserved people, inequity) and HV4 (plus mean distance), mean (standard deviation) of 30 runs, with the Vargha--Delaney $\hat{A}_{12}$ of the four-objective against the three-objective formulation (Holm-corrected Mann--Whitney U; $^\dagger$: not significant).}
 \label{tab:formulation}
 \begin{tabular}{lcccccc}
 \toprule
@@ -71,13 +71,196 @@ out.append(r"""\begin{table}[htbp]
 for c in CITIES:
     V, T = a[c]["variants"], a[c]["tests"]
     cells = []
-    for hv, test in (("hv3", "formulation-hv3 nsga2"), ("hv4", "formulation nsga2")):
+    for hv, test in (("hv3", "formulation-hv3 nsga2-none"), ("hv4", "formulation nsga2-none")):
         for o in (3, 4):
-            s = V[f"nsga2-{o}_regional"][f"{hv}_summary"]
+            s = V[f"nsga2-{o}_none"][f"{hv}_summary"]
             cells.append(f"{s['mean']:.4f} ({s['sd']:.4f})")
         cells.append(mark(T[test]))
     out.append(f"{NAMES[c]} & " + " & ".join(cells) + r" \\")
 out.append(r"""\bottomrule
+\end{tabular}
+\end{table}
+""")
+
+# Recombination ----------------------------------------------------------------
+out.append(r"""\begin{table}[htbp]
+\centering
+\small
+\caption{Recombination (NSGA-II, four objectives): HV4 after 300 generations, mean (standard deviation) of 30 runs, without crossover and with four crossovers: regional and graph crossover with small regions (tuned, Section~\ref{sec:recombination}), regional crossover with large regions (10--50\% of the candidates) and uniform crossover. $\hat{A}_{12}$: probability that a run with the crossover beats a run without it (Holm-corrected Mann--Whitney U; $^\dagger$: not significant).}
+\label{tab:recombination}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lccccccccc}
+\toprule
+& \textbf{None} & \multicolumn{2}{c}{\textbf{Regional, small}} & \multicolumn{2}{c}{\textbf{Graph, small}} & \multicolumn{2}{c}{\textbf{Regional, large}} & \multicolumn{2}{c}{\textbf{Uniform}} \\
+\cmidrule(lr){3-4} \cmidrule(lr){5-6} \cmidrule(lr){7-8} \cmidrule(lr){9-10}
+\textbf{City} & HV4 & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ \\
+\midrule""")
+for c in CITIES:
+    V, T = a[c]["variants"], a[c]["tests"]
+    cells = []
+    for v in (
+        "nsga2-4_none",
+        "nsga2-4_regional-small",
+        "nsga2-4_graph-small",
+        "nsga2-4_regional",
+        "nsga2-4_uniform",
+    ):
+        s = V[v]["hv_summary"]
+        cells.append(f"{s['mean']:.4f} ({s['sd']:.4f})")
+        if v != "nsga2-4_none":
+            cells.append(mark(T[f"recombination {v.split('_', 1)[1]}"]))
+    out.append(f"{NAMES[c]} & " + " & ".join(cells) + r" \\")
+out.append(r"""\bottomrule
+\end{tabular}}
+\end{table}
+""")
+
+# Equity measures --------------------------------------------------------------
+equity_file = os.path.join(RESULTS, "equity_measures.json")
+if os.path.exists(equity_file):
+    eq = json.load(open(equity_file))
+    shown = [
+        "f3 250/500",
+        "f3 1000/2000",
+        "Moran's I",
+        "Gini unserved share",
+        "Gini load",
+        "Gini distance",
+        "mean distance",
+    ]
+    heads = [
+        "$f_3$ 250/500",
+        "$f_3$ 1000/2000",
+        "Moran's I",
+        "Gini unserved",
+        "Gini load",
+        "Gini distance",
+        "Mean distance",
+    ]
+    out.append(
+        r"""\begin{table}[htbp]
+\centering
+\small
+\caption{Spearman rank correlation between $f_3$ (500\,m blocks, 1\,km neighbourhoods) and other measures, over the layouts with today's number of containers of the 30 fronts of each city (NSGA-II, four objectives, no crossover): $f_3$ with other block sizes and radii, Moran's I of the blocks, and classical non-spatial measures \cite{marsh1994equity}: population-weighted Gini coefficients of the unserved share of each person, of the load of each container and of the distance to the nearest container.}
+\label{tab:equity}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrccccccc}
+\toprule
+\textbf{City} & \textbf{Layouts} & """
+        + " & ".join(heads)
+        + r""" \\
+\midrule"""
+    )
+    for c in CITIES:
+        e = eq[c]
+        ref = e["measures"].index("f3 500/1000")
+        row = [f"{e['spearman'][ref][e['measures'].index(m)]:+.2f}" for m in shown]
+        out.append(f"{NAMES[c]} & {e['layouts']} & " + " & ".join(row) + r" \\")
+    out.append(r"""\bottomrule
+\end{tabular}}
+\end{table}
+""")
+
+# Accessibility bounds ------------------------------------------------------------
+bounds = {
+    c: json.load(open(f))[c]
+    for c in CITIES
+    if os.path.exists(f := os.path.join(RESULTS, f"bounds_{c}.json"))
+}
+if bounds:
+    out.append(r"""\begin{table}[htbp]
+\centering
+\small
+\caption{Mean distance (m) with today's number of containers $k_0$: Lagrangian lower bound of the $p$-median problem \cite{beasley1993lagrangean}, best known solution (Lagrangian heuristic or alternating local search), single-objective genetic algorithm (median of 5 runs) and the most accessible layout of the four-objective fronts no worse than the current layout in unserved people and inequity (median of 30 runs); in brackets, the gap to the best known solution. The last column is the inequity of the best known solution.}
+\label{tab:bounds}
+\begin{tabular}{lrrrrrr}
+\toprule
+\textbf{City} & $k_0$ & \textbf{Lower bound} & \textbf{Best known} & \textbf{Single-obj.} & \textbf{Front} & \textbf{Ineq. best known (pts)} \\
+\midrule""")
+    for c in CITIES:
+        if c not in bounds:
+            continue
+        b = bounds[c]
+        best = b["best_known"]
+        single = a[c]["single"]["mean_distance"]
+        front = a[c]["variants"][MAIN]["k0_closest"][3]
+        out.append(
+            f"{NAMES[c]} & {b['k0']} & {b['lower_bound']:.1f} & {best:.1f} & "
+            f"{single:.1f} (+{single / best - 1:.1%}) & {front:.1f} (+{front / best - 1:.1%}) & "
+            f"{b['best_known_layout']['inequity'] * 100:.1f} \\\\".replace("%", "\\%")
+        )
+    out.append(r"""\bottomrule
+\end{tabular}
+\end{table}
+""")
+
+# Ablation and sensitivity (analyse_revision.py) -----------------------------------
+revision_file = os.path.join(os.environ.get("REVISION_DIR", RESULTS + "_rev"), "revision.json")
+if os.path.exists(revision_file):
+    rev = json.load(open(revision_file))
+    switches = [
+        ("levels=0", "All sizes"),
+        ("guided_resize=False", "Random resize"),
+        ("quantize=False", "Exact $f_2$"),
+        ("local_moves=0.0", "No local moves"),
+        ("seed_current=False", "No seed"),
+    ]
+    out.append(
+        r"""\begin{table}[htbp]
+\centering
+\small
+\caption{Ablation of the recommended configuration (NSGA-II, four objectives, no crossover): HV4, mean of 30 runs, with one component removed at a time: the discrete set of sizes (all sizes in the range allowed), the load-guided resizing (random instead), the comparison of $f_2$ in steps (exact values), the local moves of the mutation (all moves to random candidates) and the seeding of the current layout. $\hat{A}_{12}$: probability that a run of the full configuration beats a run without the component (Holm-corrected Mann--Whitney U; $^\dagger$: not significant).}
+\label{tab:ablation}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lc"""
+        + "cc" * len(switches)
+        + r"""}
+\toprule
+& \textbf{Full} & """
+        + " & ".join(f"\\multicolumn{{2}}{{c}}{{\\textbf{{{label}}}}}" for _, label in switches)
+        + r""" \\
+\textbf{City} & HV4 & """
+        + " & ".join("HV4 & $\\hat{A}_{12}$" for _ in switches)
+        + r""" \\
+\midrule"""
+    )
+    for c in CITIES:
+        ab = rev["ablation"].get(c)
+        if not ab:
+            continue
+        cells = [f"{ab['main']['mean']:.4f}"]
+        for key, _ in switches:
+            v = ab[key]
+            cells += [f"{v['mean']:.4f}", mark(v)]
+        out.append(f"{NAMES[c]} & " + " & ".join(cells) + r" \\")
+    out.append(r"""\bottomrule
+\end{tabular}}
+\end{table}
+""")
+
+    out.append(r"""\begin{table}[htbp]
+\centering
+\small
+\caption{Sensitivity of the comparison between regional (large regions) and uniform crossover to the parameters of $f_3$ (NSGA-II, four objectives, 30 runs): HV4 with blocks of 250\,m and neighbourhoods of 500\,m, and with blocks of 1\,km and neighbourhoods of 2\,km (each normalized among its own runs), and $\hat{A}_{12}$ of regional against uniform (all differences significant, $p < 10^{-9}$).}
+\label{tab:sensitivity}
+\begin{tabular}{lcccccc}
+\toprule
+& \multicolumn{3}{c}{\textbf{250\,m / 500\,m}} & \multicolumn{3}{c}{\textbf{1\,km / 2\,km}} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+\textbf{City} & Regional & Uniform & $\hat{A}_{12}$ & Regional & Uniform & $\hat{A}_{12}$ \\
+\midrule""")
+    for c in CITIES:
+        se = rev["sensitivity"].get(c, {})
+        cells = []
+        for key in ("cell=250.0+radius=500.0", "cell=1000.0+radius=2000.0"):
+            v = se[key]
+            cells += [
+                f"{v['regional']['mean']:.4f}",
+                f"{v['uniform']['mean']:.4f}",
+                f"{v['a12']:.2f}",
+            ]
+        out.append(f"{NAMES[c]} & " + " & ".join(cells) + r" \\")
+    out.append(r"""\bottomrule
 \end{tabular}
 \end{table}
 """)
@@ -87,7 +270,7 @@ label_main = "4 obj." if "-4_" in MAIN else "3 obj."
 out.append(r"""\begin{table}[htbp]
 \centering
 \small
-\caption{Layouts with today's number of containers $k_0$: the current one; the single-objective genetic algorithm (median of 5 runs); and, among the layouts of each front that are no worse than the current one in unserved people and inequity, the fairest and the one with the shortest mean distance (medians over 30 runs, NSGA-II with regional crossover). Distances are straight-line and population-weighted.}
+\caption{Layouts with today's number of containers $k_0$: the current one; the single-objective genetic algorithm (median of 5 runs); and, among the layouts of each front that are no worse than the current one in unserved people and inequity, the fairest and the one with the shortest mean distance (medians over 30 runs, NSGA-II without crossover). Distances are straight-line and population-weighted.}
 \label{tab:k0}
 \begin{tabular}{llrrrr}
 \toprule
@@ -124,4 +307,10 @@ out.append(r"""\end{tabular}
 os.makedirs(os.path.join(HERE, "figures"), exist_ok=True)
 with open(os.path.join(HERE, "figures", "tables.tex"), "w") as file:
     file.write("\n".join(out))
+# One file per table too (figures/table_<label>.tex), to place each one in the text
+text = "\n".join(out)
+for chunk in text.split("\\begin{table}")[1:]:
+    label = chunk.split("\\label{tab:", 1)[1].split("}", 1)[0]
+    with open(os.path.join(HERE, "figures", f"table_{label}.tex"), "w") as file:
+        file.write("\\begin{table}" + chunk.split("\\end{table}", 1)[0] + "\\end{table}\n")
 print("\n".join(out))
