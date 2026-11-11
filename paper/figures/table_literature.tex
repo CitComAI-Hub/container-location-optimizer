@@ -1,0 +1,37 @@
+\begin{table}[htbp]
+\centering
+\small
+\caption{Crossovers of the literature in the same algorithm (same mutation, initialization and survival as PX+), at the same computing time: HV4, mean of 30 runs, and $\hat{A}_{12}$ of PX+ against each. Original: as published, mating any two parents and repairing at random (the union crossover needs no repair); +MR: with same-size mating and load-guided repair, as in PX+. Holm-corrected Mann--Whitney U within each city; $^\dagger$: not significant. Last row: PX+.}
+\label{tab:literature}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llcccccccccc}
+\toprule
+& & \multicolumn{2}{c}{\textbf{Donostia}} & \multicolumn{2}{c}{\textbf{Valladolid}} & \multicolumn{2}{c}{\textbf{Valencia}} & \multicolumn{2}{c}{\textbf{Málaga}} & \multicolumn{2}{c}{\textbf{Sevilla}} \\
+\cmidrule(lr){3-4} \cmidrule(lr){5-6} \cmidrule(lr){7-8} \cmidrule(lr){9-10} \cmidrule(lr){11-12}
+\textbf{Crossover} & \textbf{Form} & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ \\
+\midrule
+\multirow{2}{*}{Uniform} & Original & 0.5760 & 1.00 & 0.4385 & 1.00 & 0.4973 & 1.00 & 0.5438 & 1.00 & 0.5842 & 1.00 \\
+ & +MR & 0.6047 & 1.00 & 0.4632 & 1.00 & 0.5116 & 1.00 & 0.5745 & 1.00 & 0.6107 & 1.00 \\
+\midrule
+\multirow{2}{*}{One-point \cite{hosage1986discrete}} & Original & 0.5773 & 1.00 & 0.4422 & 1.00 & 0.4969 & 1.00 & 0.5490 & 1.00 & 0.5891 & 1.00 \\
+ & +MR & 0.6076 & 1.00 & 0.4629 & 1.00 & 0.5157 & 1.00 & 0.5820 & 1.00 & 0.6173 & 1.00 \\
+\midrule
+\multirow{2}{*}{Half-plane \cite{deaven1995molecular}} & Original & 0.5860 & 1.00 & 0.4608 & 1.00 & 0.5096 & 1.00 & 0.5679 & 1.00 & 0.6074 & 1.00 \\
+ & +MR & 0.6390 & 0.64$^\dagger$ & 0.4893 & 0.36$^\dagger$ & 0.5512 & 0.14 & 0.6172 & 0.26 & 0.6455 & 0.19 \\
+\midrule
+\multirow{2}{*}{Quadrant \cite{li2016improved}} & Original & 0.5899 & 1.00 & 0.4621 & 1.00 & 0.5122 & 1.00 & 0.5720 & 1.00 & 0.6103 & 1.00 \\
+ & +MR & 0.6375 & 0.72 & 0.4893 & 0.40$^\dagger$ & 0.5495 & 0.23 & 0.6151 & 0.43$^\dagger$ & 0.6453 & 0.24 \\
+\midrule
+\multirow{2}{*}{Regional} & Original & 0.6140 & 1.00 & 0.4701 & 0.99 & 0.5217 & 1.00 & 0.5908 & 1.00 & 0.6250 & 1.00 \\
+ & +MR & 0.6235 & 1.00 & 0.4790 & 0.90 & 0.5350 & 0.99 & 0.5989 & 1.00 & 0.6331 & 1.00 \\
+\midrule
+\multirow{2}{*}{Graph \cite{jordan2025crossover}} & Original & 0.6078 & 1.00 & 0.4673 & 1.00 & 0.5236 & 1.00 & 0.5904 & 1.00 & 0.6246 & 1.00 \\
+ & +MR & 0.6283 & 1.00 & 0.4787 & 0.90 & 0.5341 & 1.00 & 0.6007 & 1.00 & 0.6341 & 1.00 \\
+\midrule
+\multirow{2}{*}{Union \cite{alp2003efficient}} & Original & 0.6223 & 1.00 & 0.4595 & 1.00 & 0.5233 & 1.00 & 0.5876 & 1.00 & 0.6245 & 1.00 \\
+ & +MR & 0.6233 & 0.99 & 0.4666 & 1.00 & 0.5216 & 1.00 & 0.5882 & 1.00 & 0.6256 & 1.00 \\
+\midrule
+\textbf{PX+} & & \textbf{0.6409} & -- & \textbf{0.4877} & -- & \textbf{0.5460} & -- & \textbf{0.6139} & -- & \textbf{0.6430} & -- \\
+\bottomrule
+\end{tabular}}
+\end{table}

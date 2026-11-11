@@ -332,7 +332,7 @@ if os.path.exists(operators_file):
         r"""\begin{table}[htbp]
 \centering
 \small
-\caption{The proposed configuration (PX+: partition crossover with same-size mating, centroid moves and mixed initialization, 300 generations) against no crossover and the other operators at the same computing time: HV4 of the front reached within the median time of a PX+ run (last row), mean (standard deviation) of 30 runs, and $\hat{A}_{12}$, the probability that a run of PX+ beats a run of the variant (Holm-corrected Mann--Whitney U within each city; $^\dagger$: not significant). The first row is the configuration of the earlier sections.}
+\caption{The proposed configuration (PX+, in bold: partition crossover with same-size mating, centroid moves and mixed initialization, 300 generations) against no crossover and the other operators at the same computing time: HV4 of the front reached within the median time of a PX+ run (last row), mean (standard deviation) of 30 runs, and $\hat{A}_{12}$, the probability that a run of PX+ beats a run of the variant (Holm-corrected Mann--Whitney U within each city; $^\dagger$: not significant). The first row is the configuration of the earlier sections.}
 \label{tab:operators}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{l"""
@@ -445,6 +445,13 @@ if os.path.exists(operators_file):
         (f"partition+{M}", "Any mating"),
         (f"partition+mating=size+{M}+tile=1.0", "Tiles of 1 spacing"),
         (f"partition+mating=size+{M}+tile=4.0", "Tiles of 4 spacings"),
+        (f"partition+mating=size+{M}+tile=6.0", "Tiles of 6 spacings"),
+        (f"partition+mating=size+{M}+tile=8.0", "Tiles of 8 spacings"),
+        (f"partition+mating=size+{M}+tile=12.0", "Tiles of 12 spacings"),
+        (f"partition+mating=size+{M}+cuts=1", "Regions cut by 1 random line"),
+        (f"partition+mating=size+{M}+cuts=2", "Regions cut by 2 random lines"),
+        (f"partition+mating=size+{M}+cuts=3", "Regions cut by 3 random lines"),
+        (f"components+mating=size+{M}", "Exact components (no tiles)"),
         (f"partition+mating=size+{M}+tile_equity=True", "Equity per tile"),
         (
             f"partition+mating=size+{M}+tile_equity=True+crossover_rate=0.5+generations=900",
@@ -455,7 +462,7 @@ if os.path.exists(operators_file):
         r"""\begin{table}[htbp]
 \centering
 \small
-\caption{Ablation of PX+ at the same computing time: HV4, mean of 30 runs, and $\hat{A}_{12}$ of PX+ against each variant ($^\dagger$: not significant), and the inequity (points) of the fairest layout of the front, mean of 30 runs. Each variant changes one component of PX+ (tiles of 2 spacings, $p_c = 0.9$); the last one also runs three times as many generations, and is scored at the same time as the others.}
+\caption{Ablation of PX+ at the same computing time: HV4, mean of 30 runs, and $\hat{A}_{12}$ of PX+ against each variant ($^\dagger$: not significant), and the inequity (points) of the fairest layout of the front, mean of 30 runs. Each variant changes one component of PX+ (tiles of 2 spacings, $p_c = 0.9$): the mutation, the initialization or the mating; the shape of the regions (square tiles of 1 to 12 mean spacings, regions between 1 to 3 random lines, or the exact independent components of Section~\ref{sec:crossovers}); or the comparison in each region (equity per tile). The equity-per-tile variant with $p_c = 0.5$ also runs three times as many generations, and is scored at the same time as the others.}
 \label{tab:operator_ablation}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{l"""

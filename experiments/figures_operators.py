@@ -85,6 +85,7 @@ if ops:
     curves = [
         (PXP, "PX+ (proposed)", SERIES[0], "-"),
         ("partition+mating=size", "PX", SERIES[2], "-"),
+        (f"halfplane+{M}+{FIX}", "Half-plane + mating, repair", SERIES[4], "-"),
         (f"union+{M}+mating=size", "Union (AED)", SERIES[1], "-"),
         (f"none+{M}+generations=1200", "No crossover, improved mutation", SERIES[3], "-"),
         ("none+generations=1200", "No crossover (baseline)", MUTED, "--"),
@@ -107,7 +108,7 @@ if ops:
         ax.set_ylim(bottom=lo)
     np.atleast_1d(axes)[0].set_ylabel("HV4")
     handles, labels = np.atleast_1d(axes)[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="lower center", ncol=5, bbox_to_anchor=(0.5, -0.12))
+    fig.legend(handles, labels, loc="lower center", ncol=3, bbox_to_anchor=(0.5, -0.2))
     fig.tight_layout()
     save(fig, "anytime_operators")
 

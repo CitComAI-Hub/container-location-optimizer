@@ -1,20 +1,31 @@
 \begin{table}[htbp]
 \centering
 \small
-\caption{Variants of the partition crossover (PX) at the same computing time as Table~\ref{tab:operators}: HV4, mean of 30 runs, and $\hat{A}_{12}$ of PX against each variant. Any mating: parents of any size; tiles $\times 1$ and $\times 4$: tile side of one and four mean spacings (PX: two); equity per tile: inequity as a fourth criterion in each tile; blind regions: regional crossover with small regions, same-size mating and load-guided repair, i.e., PX without the choice of the better parent.}
+\caption{Ablation of PX+ at the same computing time: HV4, mean of 30 runs, and $\hat{A}_{12}$ of PX+ against each variant ($^\dagger$: not significant), and the inequity (points) of the fairest layout of the front, mean of 30 runs. Each variant changes one component of PX+ (tiles of 2 spacings, $p_c = 0.9$): the mutation, the initialization or the mating; the shape of the regions (square tiles of 1 to 12 mean spacings, regions between 1 to 3 random lines, or the exact independent components of Section~\ref{sec:crossovers}); or the comparison in each region (equity per tile). The equity-per-tile variant with $p_c = 0.5$ also runs three times as many generations, and is scored at the same time as the others.}
 \label{tab:operator_ablation}
 \resizebox{\textwidth}{!}{%
-\begin{tabular}{lccccccccccc}
+\begin{tabular}{lccccccccccccccc}
 \toprule
-& \textbf{PX} & \multicolumn{2}{c}{\textbf{Any mating}} & \multicolumn{2}{c}{\textbf{Tiles $\times 1$}} & \multicolumn{2}{c}{\textbf{Tiles $\times 4$}} & \multicolumn{2}{c}{\textbf{Equity per tile}} & \multicolumn{2}{c}{\textbf{Blind regions}} \\
-\cmidrule(lr){3-4} \cmidrule(lr){5-6} \cmidrule(lr){7-8} \cmidrule(lr){9-10} \cmidrule(lr){11-12}
-\textbf{City} & HV4 & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ \\
+& \multicolumn{3}{c}{\textbf{Donostia}} & \multicolumn{3}{c}{\textbf{Valladolid}} & \multicolumn{3}{c}{\textbf{Valencia}} & \multicolumn{3}{c}{\textbf{Málaga}} & \multicolumn{3}{c}{\textbf{Sevilla}} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10} \cmidrule(lr){11-13} \cmidrule(lr){14-16}
+\textbf{Variant} & HV4 & $\hat{A}_{12}$ & $f_3^{\min}$ & HV4 & $\hat{A}_{12}$ & $f_3^{\min}$ & HV4 & $\hat{A}_{12}$ & $f_3^{\min}$ & HV4 & $\hat{A}_{12}$ & $f_3^{\min}$ & HV4 & $\hat{A}_{12}$ & $f_3^{\min}$ \\
 \midrule
-Donostia & 0.6257 & 0.5879 & 1.00 & 0.6146 & 0.93 & 0.6256 & 0.49$^\dagger$ & 0.6221 & 0.70 & 0.5836 & 1.00 \\
-Valladolid & 0.4451 & 0.4277 & 1.00 & 0.4378 & 0.82 & 0.4514 & 0.16 & 0.4418 & 0.68 & 0.4213 & 1.00 \\
-Valencia & 0.5359 & 0.5060 & 1.00 & 0.5224 & 0.99 & 0.5392 & 0.21 & 0.5297 & 0.89 & 0.4962 & 1.00 \\
-Málaga & 0.6121 & 0.5804 & 1.00 & 0.6086 & 0.75 & 0.6134 & 0.38$^\dagger$ & 0.6163 & 0.19 & 0.5780 & 1.00 \\
-Sevilla & 0.6171 & 0.5859 & 1.00 & 0.6083 & 0.92 & 0.6160 & 0.56$^\dagger$ & 0.6184 & 0.38$^\dagger$ & 0.5762 & 1.00 \\
+\textbf{PX+} & \textbf{0.6409} & -- & 0.61 & \textbf{0.4877} & -- & 1.80 & \textbf{0.5460} & -- & 0.73 & \textbf{0.6139} & -- & 0.41 & \textbf{0.6430} & -- & 0.33 \\
+Without centroid moves & 0.6294 & 0.99 & 0.60 & 0.4748 & 0.96 & 1.71 & 0.5330 & 0.99 & 0.83 & 0.5993 & 0.99 & 0.38 & 0.6287 & 1.00 & 0.29 \\
+Random initialization & 0.6428 & 0.35$^\dagger$ & 0.58 & 0.4871 & 0.53$^\dagger$ & 1.66 & 0.5463 & 0.44$^\dagger$ & 0.72 & 0.6109 & 0.74 & 0.45 & 0.6419 & 0.62$^\dagger$ & 0.33 \\
+Any mating & 0.6046 & 1.00 & 0.96 & 0.4666 & 1.00 & 2.08 & 0.5082 & 1.00 & 1.03 & 0.5762 & 1.00 & 0.56 & 0.6100 & 1.00 & 0.46 \\
+Tiles of 1 spacing & 0.6299 & 0.98 & 0.62 & 0.4798 & 0.92 & 1.77 & 0.5330 & 1.00 & 0.77 & 0.6065 & 0.95 & 0.43 & 0.6344 & 0.98 & 0.31 \\
+Tiles of 4 spacings & 0.6423 & 0.35$^\dagger$ & 0.58 & 0.4917 & 0.23 & 1.72 & 0.5531 & 0.03 & 0.66 & 0.6142 & 0.49$^\dagger$ & 0.39 & 0.6453 & 0.24 & 0.32 \\
+Tiles of 6 spacings & 0.6418 & 0.38$^\dagger$ & 0.57 & 0.4918 & 0.23 & 1.83 & 0.5532 & 0.03 & 0.66 & 0.6141 & 0.49$^\dagger$ & 0.40 & 0.6441 & 0.36$^\dagger$ & 0.33 \\
+Tiles of 8 spacings & 0.6404 & 0.52$^\dagger$ & 0.60 & 0.4931 & 0.18 & 1.67 & 0.5534 & 0.02 & 0.65 & 0.6129 & 0.60$^\dagger$ & 0.40 & 0.6439 & 0.37$^\dagger$ & 0.33 \\
+Tiles of 12 spacings & 0.6369 & 0.78 & 0.57 & 0.4902 & 0.35$^\dagger$ & 1.72 & 0.5498 & 0.19 & 0.64 & 0.6120 & 0.68$^\dagger$ & 0.41 & 0.6423 & 0.56$^\dagger$ & 0.34 \\
+Regions cut by 1 random line & 0.6346 & 0.90 & 0.56 & 0.4883 & 0.48$^\dagger$ & 1.78 & 0.5461 & 0.49$^\dagger$ & 0.68 & 0.6116 & 0.70$^\dagger$ & 0.39 & 0.6412 & 0.72 & 0.33 \\
+Regions cut by 2 random lines & 0.6380 & 0.70$^\dagger$ & 0.56 & 0.4909 & 0.28 & 1.67 & 0.5504 & 0.12 & 0.64 & 0.6133 & 0.57$^\dagger$ & 0.41 & 0.6434 & 0.46$^\dagger$ & 0.33 \\
+Regions cut by 3 random lines & 0.6408 & 0.49$^\dagger$ & 0.60 & 0.4909 & 0.29 & 1.70 & 0.5516 & 0.10 & 0.66 & 0.6144 & 0.46$^\dagger$ & 0.40 & 0.6445 & 0.34$^\dagger$ & 0.31 \\
+Exact components (no tiles) & 0.6345 & 0.88 & 0.66 & 0.4780 & 0.90 & 2.38 & 0.5420 & 0.79 & 0.83 & 0.5936 & 1.00 & 0.46 & 0.6267 & 1.00 & 0.38 \\
+Equity per tile & 0.6399 & 0.55$^\dagger$ & 0.55 & 0.4850 & 0.70$^\dagger$ & 1.69 & 0.5428 & 0.76 & 0.66 & 0.6173 & 0.26 & 0.36 & 0.6455 & 0.21 & 0.28 \\
+Equity per tile, $p_c = 0.5$, 900 gen. & 0.6370 & 0.75 & 0.39 & 0.4875 & 0.52$^\dagger$ & 1.45 & 0.5434 & 0.71 & 0.48 & 0.6204 & 0.05 & 0.26 & 0.6490 & 0.06 & 0.20 \\
+No crossover, 1,200 gen. & 0.6012 & 1.00 & 0.34 & 0.4518 & 1.00 & 1.34 & 0.4986 & 1.00 & 0.57 & 0.5828 & 1.00 & 0.22 & 0.6174 & 1.00 & 0.16 \\
 \bottomrule
 \end{tabular}}
 \end{table}

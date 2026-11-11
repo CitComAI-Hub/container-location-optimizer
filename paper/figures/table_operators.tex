@@ -1,20 +1,22 @@
 \begin{table}[htbp]
 \centering
 \small
-\caption{Recombination at the same computing time (NSGA-II, four objectives): HV4 of the front reached within the median time of a 300-generation run with the partition crossover (last column), mean (standard deviation) of 30 runs. No crossover with 300 and with 1,200 generations, the partition crossover (PX) and the union crossover of Alp, Erkut and Drezner (UX-AED), both mating parents with the same number of containers. $\hat{A}_{12}$: probability that a run with the partition crossover beats a run of the other variant (Holm-corrected Mann--Whitney U within each city; $^\dagger$: not significant).}
+\caption{The proposed configuration (PX+, in bold: partition crossover with same-size mating, centroid moves and mixed initialization, 300 generations) against no crossover and the other operators at the same computing time: HV4 of the front reached within the median time of a PX+ run (last row), mean (standard deviation) of 30 runs, and $\hat{A}_{12}$, the probability that a run of PX+ beats a run of the variant (Holm-corrected Mann--Whitney U within each city; $^\dagger$: not significant). The first row is the configuration of the earlier sections.}
 \label{tab:operators}
 \resizebox{\textwidth}{!}{%
-\begin{tabular}{lccccccc}
+\begin{tabular}{lcccccccccc}
 \toprule
-& \multicolumn{2}{c}{\textbf{No crossover}} & \textbf{PX} & \multicolumn{2}{c}{$\hat{A}_{12}$ \textbf{of PX against}} & \textbf{UX-AED} & \textbf{Time} \\
-\cmidrule(lr){2-3} \cmidrule(lr){5-6}
-\textbf{City} & 300 gen. & 1,200 gen. & 300 gen. & 1,200 gen. & UX-AED & & (s) \\
+& \multicolumn{2}{c}{\textbf{Donostia}} & \multicolumn{2}{c}{\textbf{Valladolid}} & \multicolumn{2}{c}{\textbf{Valencia}} & \multicolumn{2}{c}{\textbf{Málaga}} & \multicolumn{2}{c}{\textbf{Sevilla}} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9} \cmidrule(lr){10-11}
+\textbf{Variant} & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ \\
 \midrule
-Donostia & 0.5772 (0.0060) & 0.5980 (0.0055) & \textbf{0.6257 (0.0052)} & 1.00 & 0.97 & 0.6113 (0.0057) & 41 \\
-Valladolid & 0.4135 (0.0056) & 0.4252 (0.0073) & \textbf{0.4451 (0.0042)} & 1.00 & 0.38$^\dagger$ & 0.4480 (0.0081) & 81 \\
-Valencia & 0.4830 (0.0087) & 0.5049 (0.0065) & \textbf{0.5359 (0.0029)} & 1.00 & 0.94 & 0.5253 (0.0058) & 130 \\
-Málaga & 0.5710 (0.0055) & 0.6071 (0.0053) & \textbf{0.6121 (0.0034)} & 0.80 & 1.00 & 0.5979 (0.0038) & 120 \\
-Sevilla & 0.5660 (0.0050) & 0.6131 (0.0047) & \textbf{0.6171 (0.0040)} & 0.74 & 0.67$^\dagger$ & 0.6143 (0.0045) & 129 \\
+No crossover, 300 gen. & 0.5776 (0.0055) & 1.00 & 0.4404 (0.0057) & 1.00 & 0.4759 (0.0082) & 1.00 & 0.5423 (0.0047) & 1.00 & 0.5713 (0.0052) & 1.00 \\
+No crossover, 1,200 gen. & 0.6012 (0.0038) & 1.00 & 0.4518 (0.0060) & 1.00 & 0.4986 (0.0058) & 1.00 & 0.5828 (0.0043) & 1.00 & 0.6174 (0.0047) & 1.00 \\
+No crossover, improved mutation and init., 1,200 gen. & 0.6356 (0.0034) & 0.86 & 0.4862 (0.0047) & 0.61$^\dagger$ & 0.5424 (0.0044) & 0.73 & 0.6120 (0.0033) & 0.65$^\dagger$ & 0.6451 (0.0031) & 0.29 \\
+PX, 300 gen. & 0.6247 (0.0032) & 1.00 & 0.4716 (0.0064) & 0.98 & 0.5288 (0.0038) & 1.00 & 0.5892 (0.0033) & 1.00 & 0.6216 (0.0050) & 1.00 \\
+Union (AED), improved mutation and init., 300 gen. & 0.6233 (0.0045) & 0.99 & 0.4666 (0.0058) & 1.00 & 0.5216 (0.0039) & 1.00 & 0.5882 (0.0035) & 1.00 & 0.6256 (0.0027) & 1.00 \\
+\textbf{PX+, 300 gen.} & \textbf{0.6409 (0.0039)} & -- & \textbf{0.4877 (0.0046)} & -- & \textbf{0.5460 (0.0030)} & -- & \textbf{0.6139 (0.0033)} & -- & \textbf{0.6430 (0.0023)} & -- \\
+\midrule Time budget (s) & \multicolumn{2}{c}{50} & \multicolumn{2}{c}{95} & \multicolumn{2}{c}{156} & \multicolumn{2}{c}{137} & \multicolumn{2}{c}{151} \\
 \bottomrule
 \end{tabular}}
 \end{table}
