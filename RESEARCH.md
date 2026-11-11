@@ -121,7 +121,10 @@ Time is the fair budget: the evaluation counter only counts objective evaluation
   Donostia, Málaga and Sevilla; at partition's time budget it is worse in the three smaller cities and better
   in Málaga/Sevilla. Kept as options; the default is plain partition.
 
-**Service (v1.4, not released yet)**: `ParetoParameters` defaults to `crossover="partition"`, `mating="size"`
+**Service (v1.4, deployed 2026-11-11, data space PR #34, server = DS main 8078125)**: in production (VLCi, 158 oil
+containers, 8,308 candidates, one CPU at low priority) a 300-generation trade-off job took 495 s (v1.3: 104 s); with
+today's 158 containers its front reaches 0.92 inequity points and 201 m mean distance (v1.3: 0.9 and 207 m; one run
+each, not a comparison). Test job "Trade-off v1.4 (prueba)" is in the shared job list. Earlier note: `ParetoParameters` defaults to `crossover="partition"`, `mating="size"`
 (`run.py` keeps `mating=any` unless named, so earlier runs stay reproducible). 300 generations: Donostia 31 s,
 Valencia 122 s locally (none: 10 s, 20 s).
 
