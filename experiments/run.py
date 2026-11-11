@@ -1,7 +1,7 @@
 """One run of the trade-off algorithm: python run.py CITY ALGORITHM OBJECTIVES CROSSOVER SEED
 
-ALGORITHM nsga2 or nsga3, OBJECTIVES 3 or 4 (4: plus mean distance), CROSSOVER regional,
-uniform or graph; then optional ParetoParameters as key=value.
+ALGORITHM nsga2 or nsga3, OBJECTIVES 3 or 4 (4: plus mean distance), CROSSOVER none,
+partition, union, regional, uniform or graph; then optional ParetoParameters as key=value.
 Writes results/CITY_ALGORITHM-OBJECTIVES_CROSSOVER_SEED.npz.
 """
 
@@ -34,7 +34,10 @@ for arg in sys.argv[6:]:
     elif "," in value:  # a tuple, e.g. region_share=0.01,0.05
         extra[key] = tuple(float(v) for v in value.split(","))
     else:
-        extra[key] = float(value) if "." in value else int(value)
+        try:
+            extra[key] = float(value) if "." in value else int(value)
+        except ValueError:  # a word, e.g. mating=size
+            extra[key] = value
 tag = "".join(f"+{arg}" for arg in sys.argv[6:])
 # The factorial study used regional crossover with regions of 10-50 % of the
 # candidates (the service now defaults to no crossover and smaller regions)
@@ -59,12 +62,11 @@ class Recorded(ParetoAlgorithm):
 params = ParetoParameters(
     min_containers=k0 // 2,
     max_containers=int(round(k0 * 1.5)),
-    generations=GENS,
     crossover=cx,
     algorithm=algorithm,
     distance=n_obj == 4,
     seed=seed,
-    **extra,
+    **{"generations": GENS, **extra},
 )
 alg = Recorded(p, params)
 t = time.time()
@@ -92,6 +94,9 @@ np.savez_compressed(
     elapsed=elapsed,
     snapshots=np.array(snaps, dtype=object),
     levels=alg.levels,
+    # per generation, to compare variants at the same number of evaluations or time
+    evaluations=np.array([h["evaluations"] for h in history]),
+    times=np.array([h["elapsed"] for h in history]),
     layouts=np.array([x for x in front], dtype=object),
 )
 print(out, f"{elapsed:.0f}s", len(front))

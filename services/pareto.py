@@ -32,15 +32,20 @@ good. They remain available (``crossover``). NSGA-III survival
 """
 
 import time
+from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
+from scipy.sparse import coo_matrix
+from scipy.sparse.csgraph import connected_components
+from scipy.spatial import cKDTree
 
 from services.equity import Neighbourhoods, pixel_unserved
 from services.problem import Problem
 
 OBJECTIVES = ("containers", "unserved", "inequity", "mean_distance")
+CROSSOVERS = ("none", "partition", "components", "union", "regional", "uniform", "graph")
 
 
 @dataclass(frozen=True)
@@ -50,8 +55,12 @@ class ParetoParameters:
     service_level: float = 1000
     generations: int = 200
     population_size: int = 100
-    crossover: str = "none"  # or "regional", "uniform", "graph" (Jordán et al.)
+    crossover: str = "none"  # or "partition", "union", "regional", "uniform", "graph"
     crossover_rate: float = 0.9
+    mating: str = "any"  # or "size": the second parent has the same number of containers
+    guided_repair: bool = False  # regional/uniform/graph: repair by the loads (else at random)
+    tile: float = 2.0  # partition: side of the tiles, in mean spacings between sites
+    tile_count: bool = True  # partition: compare the parents in a tile also by their sites
     mutation: float = 0.5  # probability that a child is mutated
     moved_share: float = 0.02  # share of its sites a mutation changes
     local_moves: float = 0.8  # share of moves to a neighbour candidate
@@ -113,8 +122,10 @@ class ParetoAlgorithm:
             raise ValueError(
                 f"containers must satisfy 1 <= min <= max <= {problem.size} (candidate sites)"
             )
-        if params.crossover not in ("none", "regional", "uniform", "graph"):
-            raise ValueError("crossover must be 'none', 'regional', 'uniform' or 'graph'")
+        if params.crossover not in CROSSOVERS:
+            raise ValueError(f"crossover must be one of {', '.join(CROSSOVERS)}")
+        if params.mating not in ("any", "size"):
+            raise ValueError("mating must be 'any' or 'size'")
         if params.algorithm not in ("nsga2", "nsga3"):
             raise ValueError("algorithm must be 'nsga2' or 'nsga3'")
         self.n_objectives = 4 if params.distance else 3
@@ -128,6 +139,10 @@ class ParetoAlgorithm:
                 problem.pixels_xy, problem.people, params.cell, params.radius
             )
         self._cache: dict[bytes, tuple[np.ndarray, np.ndarray]] = {}
+        self.evaluations = 0  # layouts evaluated (cache misses)
+        # Unserved people and distance of every pixel, for the partition
+        # crossover: kept for the last layouts evaluated (parents and children)
+        self._pixels: OrderedDict[bytes, tuple[np.ndarray, np.ndarray]] = OrderedDict()
         lo, hi = params.min_containers, params.max_containers
         if params.levels <= 0 or params.levels > hi - lo + 1:
             self.levels = np.arange(lo, hi + 1)
@@ -138,16 +153,18 @@ class ParetoAlgorithm:
             self.levels = np.union1d(self.levels, [problem.current_containers])
 
     # -- evaluation --------------------------------------------------- #
-    def measure(self, layout: np.ndarray) -> dict:
-        """Objectives and metrics of a layout (sorted candidate indices)."""
+    def measure(self, layout: np.ndarray, diagnostics: bool = True) -> dict:
+        """Objectives and metrics of a layout (sorted candidate indices);
+        Moran's I (a diagnostic, as costly as the rest) only with ``diagnostics``."""
         p = self.problem
         ev = p.evaluate(layout, self.params.service_level)
         unserved = pixel_unserved(p.people, ev.pixel_site, ev.loads, ev.capacities)
         return {
+            "pixel_unserved": unserved,
             "containers": int(layout.size),
             "unserved": ev.overload,
             "inequity": self.neighbourhoods.inequity(unserved),
-            "morans_i": self.neighbourhoods.morans_i(unserved),
+            "morans_i": self.neighbourhoods.morans_i(unserved) if diagnostics else None,
             "evaluation": ev,
         }
 
@@ -155,7 +172,10 @@ class ParetoAlgorithm:
         """(objectives, loads per site); cached."""
         key = layout.tobytes()
         if key not in self._cache:
-            m = self.measure(layout)
+            self.evaluations += 1
+            m = self.measure(layout, diagnostics=False)
+            if self.params.crossover == "partition":
+                self._remember(key, m["pixel_unserved"], m["evaluation"].pixel_distance)
             # Unserved in steps of a tenth of the service level: smaller
             # differences are below the population of a pixel (noise), and
             # would shelter unfair layouts from layouts as good but fairer
@@ -218,6 +238,20 @@ class ParetoAlgorithm:
         sites = np.unique(layout).tolist()
         return np.sort(np.asarray(self._resize(sites, self._snap(len(sites))), dtype=int))
 
+    def _guided_repair(self, layout: np.ndarray, target: int | None = None) -> np.ndarray:
+        """Unique sites, resized to ``target`` (default: the nearest allowed
+        size) by the loads of the sites: the least loaded are removed, new
+        sites are added next to the most loaded."""
+        sites = np.unique(layout)
+        target = self._snap(sites.size) if target is None else target
+        if sites.size != target:
+            loads = self.problem.evaluate(sites, self.params.service_level).loads
+            sites = np.asarray(self._resize(sites.tolist(), target, loads), dtype=int)
+        return np.sort(sites)
+
+    def _fix(self, layout: np.ndarray) -> np.ndarray:
+        return self._guided_repair(layout) if self.params.guided_repair else self._repair(layout)
+
     def random_layout(self) -> np.ndarray:
         k = int(self.rng.choice(self.levels))
         return np.sort(self.rng.choice(self.problem.size, k, replace=False))
@@ -230,13 +264,19 @@ class ParetoAlgorithm:
         return [self.problem.seed(k, self.rng)]
 
     def crossover(self, a: np.ndarray, b: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        if self.params.crossover == "partition":
+            return self._partition(a, b)
+        if self.params.crossover == "components":
+            return self._partition_exact(a, b)
+        if self.params.crossover == "union":
+            return self._union(a, b, a.size), self._union(a, b, b.size)
         if self.params.crossover == "uniform":
             common = np.intersect1d(a, b, assume_unique=True)
             others = np.setxor1d(a, b, assume_unique=True)
             take = self.rng.random(others.size) < 0.5
             return (
-                self._repair(np.concatenate((common, others[take]))),
-                self._repair(np.concatenate((common, others[~take]))),
+                self._fix(np.concatenate((common, others[take]))),
+                self._fix(np.concatenate((common, others[~take]))),
             )
         if self.params.crossover == "graph":
             return self._exchange(a, b, self._graph_region())
@@ -253,9 +293,194 @@ class ParetoAlgorithm:
     def _exchange(self, a: np.ndarray, b: np.ndarray, mask: np.ndarray):
         """Children that swap the parents' sites inside the region ``mask``."""
         return (
-            self._repair(np.concatenate((a[~mask[a]], b[mask[b]]))),
-            self._repair(np.concatenate((b[~mask[b]], a[mask[a]]))),
+            self._fix(np.concatenate((a[~mask[a]], b[mask[b]]))),
+            self._fix(np.concatenate((b[~mask[b]], a[mask[a]]))),
         )
+
+    # -- spatial partition crossover ----------------------------------- #
+    def components(self, a: np.ndarray, b: np.ndarray):
+        """Split the sites of two parents into independent components.
+
+        Each person uses the nearest site. A child that takes, in every
+        component, the sites of one of the parents (shared sites are in both)
+        serves a pixel from a site of a | b no farther than the farther of the
+        pixel's sites in the parents; linking all those sites makes the
+        pixel's site in the child that of the parent its component came from.
+        So the containers, unserved people and total distance of a child are
+        the sums, component by component, of those of the parent each one
+        came from (inequity is not additive).
+
+        Returns (union of the sites, component of each, contributions of a and
+        of b per component as rows (containers, unserved, distance), whether
+        each component holds sites of only one parent)."""
+        p, level = self.problem, self.params.service_level
+        ea, eb = p.evaluate(a, level), p.evaluate(b, level)
+        union = np.union1d(a, b)
+        local = np.full(p.size, -1, dtype=int)
+        local[union] = np.arange(union.size)
+        sa, sb = a[ea.pixel_site], b[eb.pixel_site]  # serving candidate of each pixel
+        rows = np.flatnonzero(sa != sb)
+        reach = np.maximum(ea.pixel_distance[rows], eb.pixel_distance[rows]) + 1e-6
+        near, dist = p.pixel_neighbours[rows], p.pixel_dists[rows]
+        r, c = np.nonzero((local[near] >= 0) & (dist <= reach[:, None]))
+        src = [local[sa[rows]], local[sa[rows[r]]]]
+        dst = [local[sb[rows]], local[near[r, c]]]
+        far = np.flatnonzero(reach > dist[:, -1])  # beyond the precomputed neighbours
+        if far.size:
+            tree = cKDTree(p.candidates_xy[union])
+            found_all = tree.query_ball_point(p.pixels_xy[rows[far]], reach[far])
+            for i, found in zip(far, found_all, strict=True):
+                src.append(np.full(len(found), local[sa[rows[i]]]))
+                dst.append(np.asarray(found, dtype=int))
+        src, dst = np.concatenate(src), np.concatenate(dst)
+        graph = coo_matrix((np.ones(src.size), (src, dst)), shape=(union.size, union.size))
+        n, labels = connected_components(graph, directed=False)
+
+        shared = np.intersect1d(a, b, assume_unique=True)
+
+        def contributions(x, ev):
+            lab = labels[local[x]]
+            over = np.clip(ev.loads - ev.capacities, 0, None)
+            weights = p.people * ev.pixel_distance
+            return np.stack(
+                [
+                    np.bincount(lab[~np.isin(x, shared)], minlength=n),
+                    np.bincount(lab, weights=over, minlength=n),
+                    np.bincount(lab[ev.pixel_site], weights=weights, minlength=n),
+                ],
+                axis=1,
+            )
+
+        differ = np.zeros(n, dtype=bool)
+        differ[labels[local[np.setxor1d(a, b, assume_unique=True)]]] = True
+        return union, labels, contributions(a, ea), contributions(b, eb), differ
+
+    def _remember(self, key: bytes, unserved: np.ndarray, distance: np.ndarray) -> None:
+        self._pixels[key] = (unserved, distance)
+        while len(self._pixels) > 3 * self.params.population_size:
+            self._pixels.popitem(last=False)
+
+    def _pixel_measures(self, layout: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Unserved people and distance of every pixel."""
+        key = layout.tobytes()
+        if key in self._pixels:
+            self._pixels.move_to_end(key)
+            return self._pixels[key]
+        p = self.problem
+        ev = p.evaluate(layout, self.params.service_level)
+        unserved = pixel_unserved(p.people, ev.pixel_site, ev.loads, ev.capacities)
+        self._remember(key, unserved, ev.pixel_distance)
+        return unserved, ev.pixel_distance
+
+    def tiles(self, a: np.ndarray, b: np.ndarray):
+        """A grid of square tiles at a random offset, of side ``tile`` times
+        the mean spacing between the sites of the parents. Returns the tile of
+        each pixel and of each candidate, and the contributions of a and b to
+        each tile as rows (containers, unserved people, distance x people) of
+        the sites and pixels in it."""
+        p = self.problem
+        area = np.prod(np.ptp(p.pixels_xy, axis=0)) or 1.0
+        side = self.params.tile * np.sqrt(area / max(1, (a.size + b.size) / 2))
+        offset = self.rng.random(2) * side
+        lo = p.pixels_xy.min(axis=0) - side
+
+        def tile_of(xy):
+            ij = np.floor((xy - lo + offset) / side).astype(np.int64)
+            return ij[:, 0] * 1_000_003 + ij[:, 1]
+
+        keys, inverse = np.unique(
+            np.concatenate((tile_of(p.pixels_xy), tile_of(p.candidates_xy))), return_inverse=True
+        )
+        pixel_tile, site_tile = inverse[: len(p.pixels_xy)], inverse[len(p.pixels_xy) :]
+        n = keys.size
+
+        def contributions(x):
+            unserved, distance = self._pixel_measures(x)
+            return np.stack(
+                [
+                    np.bincount(site_tile[x], minlength=n),
+                    np.bincount(pixel_tile, weights=unserved, minlength=n),
+                    np.bincount(pixel_tile, weights=p.people * distance, minlength=n),
+                ],
+                axis=1,
+            )
+
+        return site_tile, contributions(a), contributions(b)
+
+    def _partition(self, a: np.ndarray, b: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Partition crossover: cut the city into tiles (see :meth:`tiles`) and
+        take, in each, the sites of the parent that does better there (no more
+        containers, unserved people or distance, and less of one); where
+        neither does, the first child takes the tile from a random parent and
+        the second from the other. Then repaired by the loads."""
+        site_tile, ca, cb = self.tiles(a, b)
+        if not self.params.tile_count:
+            ca, cb = ca[:, 1:], cb[:, 1:]
+        a_better = (ca <= cb).all(axis=1) & (ca < cb).any(axis=1)
+        b_better = (cb <= ca).all(axis=1) & (cb < ca).any(axis=1)
+        tie = ~a_better & ~b_better & (ca != cb).any(axis=1)
+        coin = self.rng.random(tie.size) < 0.5
+        children = []
+        for take_b in (b_better | (tie & coin), b_better | (tie & ~coin)):
+            child = np.concatenate((a[~take_b[site_tile[a]]], b[take_b[site_tile[b]]]))
+            children.append(self._guided_repair(child))
+        if not tie.any():  # both children are the same: keep the second parent
+            children[1] = b.copy()
+        return children[0], children[1]
+
+    def _partition_exact(self, a: np.ndarray, b: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Spatial partition crossover: in each independent component (see
+        :meth:`components`), take the sites of the parent that is better there
+        (no more containers, unserved people or distance, and less of one);
+        where neither is, the first child takes them from a random parent and
+        the second from the other. Then repaired by the loads."""
+        union, labels, ca, cb, differ = self.components(a, b)
+        a_better = (ca <= cb).all(axis=1) & (ca < cb).any(axis=1)
+        b_better = (cb <= ca).all(axis=1) & (cb < ca).any(axis=1)
+        tie = differ & ~a_better & ~b_better
+        coin = self.rng.random(tie.size) < 0.5
+        in_a, in_b = np.isin(union, a), np.isin(union, b)
+        children = []
+        for take_b in (b_better | (tie & coin), b_better | (tie & ~coin)):
+            from_b = take_b[labels]
+            children.append(self._guided_repair(union[np.where(from_b, in_b, in_a)]))
+        if not tie.any():  # both children are the same: keep the second parent
+            children[1] = b.copy()
+        return children[0], children[1]
+
+    def _union(self, a: np.ndarray, b: np.ndarray, target: int) -> np.ndarray:
+        """Union crossover (Alp, Erkut and Drezner's for the p-median problem,
+        with a random weight between the objectives): start from the sites of
+        both parents and drop, a third of the excess at a time, those whose
+        removal costs least, until ``target`` remain. The cost of dropping a
+        site mixes the extra distance of its people to their next site and
+        its load."""
+        p, level = self.problem, self.params.service_level
+        sites = np.union1d(a, b)
+        w = self.rng.random()
+        rows = np.arange(len(p.pixels_xy))
+        while sites.size > target:
+            ev = p.evaluate(sites, level)
+            mask = np.zeros(p.size, dtype=bool)
+            mask[sites] = True
+            hits = mask[p.pixel_neighbours]
+            hits[rows, hits.argmax(axis=1)] = False
+            second = np.where(
+                hits.any(axis=1),
+                p.pixel_dists[rows, hits.argmax(axis=1)],
+                2 * p.pixel_dists[:, -1],
+            )
+            extra = np.bincount(
+                ev.pixel_site,
+                weights=p.people * np.maximum(second - ev.pixel_distance, 0),
+                minlength=sites.size,
+            )
+            cost = w * extra / max(extra.max(), 1e-9) + (1 - w) * ev.loads / max(
+                ev.loads.max(), 1e-9
+            )
+            drop = max(1, (sites.size - target) // 3)
+            sites = np.delete(sites, np.argsort(cost, kind="stable")[:drop])
+        return self._guided_repair(sites, target)
 
     def _graph_region(self) -> np.ndarray:
         """Graph crossover (Jordán et al., 2025): the union of ``graph_centres``
@@ -362,8 +587,11 @@ class ParetoAlgorithm:
         survivors = self._nsga3.do(self._nsga3_problem, population, n_survive=n)
         return np.asarray(survivors.get("index"), dtype=int)
 
-    def _tournament(self, rank, crowd) -> int:
-        i, j = self.rng.choice(len(rank), 2, replace=False)
+    def _tournament(self, rank, crowd, among: np.ndarray | None = None) -> int:
+        if among is not None and among.size >= 2:
+            i, j = self.rng.choice(among, 2, replace=False)
+        else:
+            i, j = self.rng.choice(len(rank), 2, replace=False)
         if rank[i] != rank[j]:
             return i if rank[i] < rank[j] else j
         return i if crowd[i] >= crowd[j] else j
@@ -389,6 +617,7 @@ class ParetoAlgorithm:
                 "min_unserved": round(float(front[:, 1].min())),
                 "min_inequity": round(float(front[:, 2].min()), 4),
                 "elapsed": round(time.monotonic() - start, 1),
+                "evaluations": self.evaluations,
             }
             history.append(record)
             if progress:
@@ -400,9 +629,11 @@ class ParetoAlgorithm:
                 break
 
             offspring = []
+            sizes = np.array([x.size for x in population])
             while len(offspring) < p.population_size:
                 a = population[self._tournament(rank, crowd)]
-                b = population[self._tournament(rank, crowd)]
+                same = np.flatnonzero(sizes == a.size) if p.mating == "size" else None
+                b = population[self._tournament(rank, crowd, same)]
                 if p.crossover != "none" and self.rng.random() < p.crossover_rate:
                     children = self.crossover(a, b)
                 else:
