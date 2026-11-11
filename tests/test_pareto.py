@@ -175,3 +175,23 @@ def test_size_mating_and_new_crossovers_run(problem):
         )
         front, _ = ParetoAlgorithm(problem, params).run()
         assert front and all(2 <= x.size <= 8 for x in front)
+
+
+def test_demand_layouts_follow_the_population(problem):
+    """People live in the west half: demand seeding puts most sites there."""
+    params = ParetoParameters(min_containers=6, max_containers=6, init="demand", seed=7)
+    algorithm = ParetoAlgorithm(problem, params)
+    mid = problem.candidates_xy[:, 0].min() + np.ptp(problem.candidates_xy[:, 0]) / 2
+    for exponent in (0.0, 2.0):
+        west = [
+            (problem.candidates_xy[algorithm.demand_layout(6, exponent), 0] < mid).mean()
+            for _ in range(10)
+        ]
+        assert np.mean(west) > 0.7
+    layout = algorithm.demand_layout()
+    assert np.unique(layout).size == layout.size == 6
+    front, _ = ParetoAlgorithm(
+        problem,
+        ParetoParameters(min_containers=2, max_containers=8, generations=5, init="demand", seed=8),
+    ).run()
+    assert front

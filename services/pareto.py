@@ -49,7 +49,18 @@ from services.equity import Neighbourhoods, pixel_unserved
 from services.problem import Problem
 
 OBJECTIVES = ("containers", "unserved", "inequity", "mean_distance")
-CROSSOVERS = ("none", "partition", "components", "union", "regional", "uniform", "graph")
+CROSSOVERS = (
+    "none",
+    "partition",
+    "components",
+    "union",
+    "regional",
+    "uniform",
+    "graph",
+    "onepoint",
+    "halfplane",
+    "quadrant",
+)
 
 
 @dataclass(frozen=True)
@@ -64,12 +75,19 @@ class ParetoParameters:
     mating: str = "size"  # the second parent has as many containers ("any": not)
     guided_repair: bool = False  # regional/uniform/graph: repair by the loads (else at random)
     tile: float = 2.0  # partition: side of the tiles, in mean spacings between sites
+    init: str = (
+        "random"  # "demand" (k-means++ by population) or "balanced" (equal-population cells)
+    )
+    init_share: float = 0.5  # with init="demand", share of the first population seeded that way
+    tile_max: float = 0.0  # partition: if > tile, the side is drawn in [tile, tile_max]
     tile_count: bool = True  # partition: compare the parents in a tile also by their sites
     tile_equity: bool = False  # partition: ... and by the dispersion of the unserved share
     mutation: float = 0.5  # probability that a child is mutated
     moved_share: float = 0.02  # share of its sites a mutation changes
     local_moves: float = 0.8  # share of moves to a neighbour candidate
     resize: float = 0.2  # probability that a mutation also changes the number of containers
+    centroid_moves: float = 0.0  # share of moves to the centre of the people a site serves
+    balance: float = 0.0  # probability that a mutation moves the least loaded site next to the most
     levels: int = 11  # allowed numbers of containers, evenly spaced in the range (0: all)
     region_share: tuple[float, float] = (0.001, 0.005)  # share of candidates in the disc
     graph_centres: int = 1  # graph crossover: subgraphs exchanged
@@ -129,6 +147,8 @@ class ParetoAlgorithm:
             )
         if params.crossover not in CROSSOVERS:
             raise ValueError(f"crossover must be one of {', '.join(CROSSOVERS)}")
+        if params.init not in ("random", "demand", "balanced"):
+            raise ValueError("init must be 'random', 'demand' or 'balanced'")
         if params.mating not in ("any", "size"):
             raise ValueError("mating must be 'any' or 'size'")
         if params.algorithm not in ("nsga2", "nsga3"):
@@ -261,6 +281,70 @@ class ParetoAlgorithm:
         k = int(self.rng.choice(self.levels))
         return np.sort(self.rng.choice(self.problem.size, k, replace=False))
 
+    def demand_layout(self, k: int | None = None, exponent: float | None = None) -> np.ndarray:
+        """A layout seeded where people live (k-means++ weighted by population):
+        each site is drawn among the pixels with probability proportional to
+        people x d^exponent, d being the distance to the nearest site drawn so
+        far, and placed on the nearest free candidate. Exponent 0 follows the
+        population (more sites where more people live), 2 spreads the sites
+        to shorten walks (the k-means++ rule); by default it is drawn in [0, 2]
+        so that the seeds cover the trade-off."""
+        p = self.problem
+        k = int(self.rng.choice(self.levels)) if k is None else k
+        exponent = self.rng.uniform(0, 2) if exponent is None else exponent
+        chosen: list[int] = []
+        taken = np.zeros(p.size, dtype=bool)
+        dist = np.full(len(p.pixels_xy), np.inf)
+        for _ in range(k):
+            w = p.people * (np.where(np.isfinite(dist), dist, 1.0) ** exponent)
+            total = w.sum()
+            pixel = (
+                int(self.rng.choice(len(w), p=w / total))
+                if total > 0
+                else int(self.rng.integers(len(w)))
+            )
+            _, near = p.candidate_tree.query(p.pixels_xy[pixel], k=min(16, p.size))
+            free = [int(c) for c in np.atleast_1d(near) if not taken[c]]
+            site = free[0] if free else int(self.rng.choice(np.flatnonzero(~taken)))
+            taken[site] = True
+            chosen.append(site)
+            dist = np.minimum(dist, np.hypot(*(p.pixels_xy - p.candidates_xy[site]).T))
+        return np.sort(np.asarray(chosen, dtype=int))
+
+    def balanced_layout(self, k: int | None = None) -> np.ndarray:
+        """A layout whose cells hold about the same population: the pixels are
+        split recursively by a line of random orientation into two parts whose
+        populations are proportional to the sites each will hold, until each
+        part holds one site, placed on the free candidate nearest to the
+        centre of its people. Equal loads leave no capacity idle and spread the
+        shortage evenly, the aims of the unserved and inequity objectives."""
+        p = self.problem
+        k = int(self.rng.choice(self.levels)) if k is None else k
+        taken = np.zeros(p.size, dtype=bool)
+        chosen: list[int] = []
+        stack = [(np.flatnonzero(p.people > 0), k)]
+        while stack:
+            pixels, m = stack.pop()
+            if m == 1 or pixels.size <= 1:
+                w = p.people[pixels]
+                centre = (p.pixels_xy[pixels] * w[:, None]).sum(0) / max(w.sum(), 1e-9)
+                for _ in range(m):
+                    _, near = p.candidate_tree.query(centre, k=min(32, p.size))
+                    free = [int(c) for c in np.atleast_1d(near) if not taken[c]]
+                    site = free[0] if free else int(self.rng.choice(np.flatnonzero(~taken)))
+                    taken[site] = True
+                    chosen.append(site)
+                continue
+            angle = self.rng.uniform(0, np.pi)
+            along = p.pixels_xy[pixels] @ np.array([np.cos(angle), np.sin(angle)])
+            order = pixels[np.argsort(along)]
+            left = m // 2
+            cumulative = np.cumsum(p.people[order])
+            cut = int(np.searchsorted(cumulative, cumulative[-1] * left / m)) + 1
+            cut = min(max(cut, 1), order.size - 1)
+            stack += [(order[:cut], left), (order[cut:], m - left)]
+        return np.sort(np.asarray(chosen, dtype=int))
+
     def seeds(self) -> list[np.ndarray]:
         """The current layout, cut or extended to the nearest allowed size."""
         if not self.params.seed_current:
@@ -285,6 +369,22 @@ class ParetoAlgorithm:
             )
         if self.params.crossover == "graph":
             return self._exchange(a, b, self._graph_region())
+        if self.params.crossover == "onepoint":
+            # One-point crossover of the binary vectors (Hosage and Goodchild)
+            cut = int(self.rng.integers(1, self.problem.size))
+            return self._exchange(a, b, np.arange(self.problem.size) >= cut)
+        if self.params.crossover in ("halfplane", "quadrant"):
+            xy = self.problem.candidates_xy
+            centre = xy[self.rng.integers(len(xy))]
+            if self.params.crossover == "halfplane":
+                # Cut-and-splice (Deaven and Ho): a random line through a random point
+                angle = self.rng.uniform(0, np.pi)
+                normal = np.array([np.cos(angle), np.sin(angle)])
+                return self._exchange(a, b, (xy - centre) @ normal > 0)
+            # Quadrant swap (Li and Parrott): one of the four quadrants around a random point
+            q = int(self.rng.integers(4))
+            right, up = xy[:, 0] > centre[0], xy[:, 1] > centre[1]
+            return self._exchange(a, b, (right == bool(q & 1)) & (up == bool(q & 2)))
         # Regional: a disc around a random candidate holding a random share of them
         xy = self.problem.candidates_xy
         centre = xy[self.rng.integers(len(xy))]
@@ -388,7 +488,10 @@ class ParetoAlgorithm:
         additive, but this is its share in the tile."""
         p = self.problem
         area = np.prod(np.ptp(p.pixels_xy, axis=0)) or 1.0
-        side = self.params.tile * np.sqrt(area / max(1, (a.size + b.size) / 2))
+        tau = self.params.tile
+        if self.params.tile_max > tau:
+            tau = self.rng.uniform(tau, self.params.tile_max)
+        side = tau * np.sqrt(area / max(1, (a.size + b.size) / 2))
         offset = self.rng.random(2) * side
         lo = p.pixels_xy.min(axis=0) - side
 
@@ -547,10 +650,28 @@ class ParetoAlgorithm:
         sites = layout.tolist()
         chosen = set(sites)
         neighbours = self.problem.candidate_neighbours
+        centres = None
+        if p.balance and len(sites) > 1 and self.rng.random() < p.balance:
+            # Balancing move: the least loaded site goes next to the most loaded one
+            low, high = int(np.argmin(loads)), int(np.argmax(loads))
+            options = [c for c in neighbours[sites[high]] if c not in chosen]
+            if options and low != high:
+                new = int(self.rng.choice(options))
+                chosen.discard(sites[low])
+                chosen.add(new)
+                sites[low] = new
         for _ in range(max(1, self.rng.binomial(len(sites), p.moved_share))):
             i = int(self.rng.integers(len(sites)))
             options = []
-            if self.rng.random() < p.local_moves and neighbours.shape[1]:
+            if p.centroid_moves and self.rng.random() < p.centroid_moves:
+                # Towards the centre of the people the site serves (Cooper's
+                # alternating step for the p-median problem)
+                if centres is None:
+                    centres = self._centres(layout)
+                if np.isfinite(centres[i]).all():
+                    _, near = self.problem.candidate_tree.query(centres[i], k=4)
+                    options = [int(c) for c in np.atleast_1d(near) if c not in chosen][:1]
+            elif self.rng.random() < p.local_moves and neighbours.shape[1]:
                 options = [c for c in neighbours[sites[i]] if c not in chosen]
             new = (
                 int(self.rng.choice(options))
@@ -569,6 +690,25 @@ class ParetoAlgorithm:
             guide = loads if p.guided_resize else None
             sites = self._resize(sites, int(self.levels[level]), guide)
         return self._repair(np.asarray(sites, dtype=int))
+
+    def _centres(self, layout: np.ndarray) -> np.ndarray:
+        """Population-weighted centre of the pixels each site serves (NaN if none)."""
+        p = self.problem
+        ev = p.evaluate(layout, self.params.service_level)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            return (
+                np.column_stack(
+                    [
+                        np.bincount(
+                            ev.pixel_site,
+                            weights=p.people * p.pixels_xy[:, j],
+                            minlength=layout.size,
+                        )
+                        for j in (0, 1)
+                    ]
+                )
+                / ev.loads[:, None]
+            )
 
     # -- loop --------------------------------------------------------- #
     def _rank(self, F: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -631,7 +771,11 @@ class ParetoAlgorithm:
         start = time.monotonic()
         population = self.seeds()
         while len(population) < p.population_size:
-            population.append(self.random_layout())
+            if p.init != "random" and self.rng.random() < p.init_share:
+                seed = self.demand_layout() if p.init == "demand" else self.balanced_layout()
+            else:
+                seed = self.random_layout()
+            population.append(seed)
         F = np.array([self.objectives(x)[0] for x in population])
         history = []
 
