@@ -4,6 +4,7 @@
 import json
 import os
 
+import numpy as np
 from common import CITIES, HERE, NAMES, RESULTS
 
 MAIN = os.environ.get("MAIN_VARIANT", "nsga2-4_none")
@@ -304,82 +305,269 @@ out.append(r"""\end{tabular}
 \end{table}
 """)
 
-# Partition crossover (analyse_operators.py) --------------------------------------
+# Operator study (analyse_operators.py, seeds.py, components.py) -------------------
+M = "centroid_moves=0.8+init=mixed"
+FIX = "mating=size+guided_repair=True"
+PXP = f"partition+mating=size+{M}"
 operators_file = os.path.join(RESULTS, "operators.json")
 if os.path.exists(operators_file):
     ops = json.load(open(operators_file))["cities"]
-    P = "partition+mating=size"
 
-    def at_time(c, v):
-        s = ops[c]["variants"][v]["summary"]["hv_at_time"]
-        return f"{s['mean']:.4f} ({s['sd']:.4f})"
+    def hv(c, v, key="hv_at_time", sd=True):
+        s = ops[c]["variants"][v]["summary"][key]
+        return f"{s['mean']:.4f} ({s['sd']:.4f})" if sd else f"{s['mean']:.4f}"
 
-    def vs(c, v):
-        """A12 of the partition crossover against v, at the same time."""
-        return mark(ops[c]["variants"][v]["reference_vs"]["hv_at_time"])
+    def vs(c, v, key="hv_at_time"):
+        """A12 of PX+ against v."""
+        return mark(ops[c]["variants"][v]["reference_vs"][key])
 
-    out.append(r"""\begin{table}[htbp]
+    main = [
+        ("none", "No crossover, 300 gen."),
+        ("none+generations=1200", "No crossover, 1,200 gen."),
+        (f"none+{M}+generations=1200", "No crossover, improved mutation and init., 1,200 gen."),
+        ("partition+mating=size", "PX, 300 gen."),
+        (f"union+{M}+mating=size", "Union (AED), improved mutation and init., 300 gen."),
+    ]
+    out.append(
+        r"""\begin{table}[htbp]
 \centering
 \small
-\caption{Recombination at the same computing time (NSGA-II, four objectives): HV4 of the front reached within the median time of a 300-generation run with the partition crossover (last column), mean (standard deviation) of 30 runs. No crossover with 300 and with 1,200 generations, the partition crossover (PX) and the union crossover of Alp, Erkut and Drezner (UX-AED), both mating parents with the same number of containers. $\hat{A}_{12}$: probability that a run with the partition crossover beats a run of the other variant (Holm-corrected Mann--Whitney U within each city; $^\dagger$: not significant).}
+\caption{The proposed configuration (PX+: partition crossover with same-size mating, centroid moves and mixed initialization, 300 generations) against no crossover and the other operators at the same computing time: HV4 of the front reached within the median time of a PX+ run (last row), mean (standard deviation) of 30 runs, and $\hat{A}_{12}$, the probability that a run of PX+ beats a run of the variant (Holm-corrected Mann--Whitney U within each city; $^\dagger$: not significant). The first row is the configuration of the earlier sections.}
 \label{tab:operators}
 \resizebox{\textwidth}{!}{%
-\begin{tabular}{lccccccc}
+\begin{tabular}{l"""
+        + "cc" * len(CITIES)
+        + r"""}
 \toprule
-& \multicolumn{2}{c}{\textbf{No crossover}} & \textbf{PX} & \multicolumn{2}{c}{$\hat{A}_{12}$ \textbf{of PX against}} & \textbf{UX-AED} & \textbf{Time} \\
-\cmidrule(lr){2-3} \cmidrule(lr){5-6}
-\textbf{City} & 300 gen. & 1,200 gen. & 300 gen. & 1,200 gen. & UX-AED & & (s) \\
-\midrule""")
-    for c in CITIES:
-        r = ops[c]
-        out.append(
-            f"{NAMES[c]} & {at_time(c, 'none')} & {at_time(c, 'none+generations=1200')} & "
-            f"\\textbf{{{at_time(c, P)}}} & {vs(c, 'none+generations=1200')} & "
-            f"{vs(c, 'union+mating=size')} & {at_time(c, 'union+mating=size')} & "
-            f"{r['budgets']['time']:.0f} \\\\"
-        )
+& """
+        + " & ".join(f"\\multicolumn{{2}}{{c}}{{\\textbf{{{NAMES[c]}}}}}" for c in CITIES)
+        + r""" \\
+"""
+        + " ".join(f"\\cmidrule(lr){{{2 + 2 * i}-{3 + 2 * i}}}" for i in range(len(CITIES)))
+        + r"""
+\textbf{Variant} & """
+        + " & ".join("HV4 & $\\hat{A}_{12}$" for _ in CITIES)
+        + r""" \\
+\midrule"""
+    )
+    for v, label in main:
+        out.append(f"{label} & " + " & ".join(f"{hv(c, v)} & {vs(c, v)}" for c in CITIES) + r" \\")
+    out.append(
+        r"\textbf{PX+, 300 gen.} & "
+        + " & ".join(f"\\textbf{{{hv(c, PXP)}}} & --" for c in CITIES)
+        + r" \\"
+    )
+    out.append(
+        r"\midrule Time budget (s) & "
+        + " & ".join(f"\\multicolumn{{2}}{{c}}{{{ops[c]['budgets']['time']:.0f}}}" for c in CITIES)
+        + r" \\"
+    )
+    out.append(r"""\bottomrule
+\end{tabular}}
+\end{table}
+""")
+
+    literature = [
+        ("Uniform", "uniform", f"uniform+{M}", f"uniform+{M}+{FIX}"),
+        (
+            "One-point \\cite{hosage1986discrete}",
+            "onepoint",
+            f"onepoint+{M}",
+            f"onepoint+{M}+{FIX}",
+        ),
+        (
+            "Half-plane \\cite{deaven1995molecular}",
+            "halfplane",
+            f"halfplane+{M}",
+            f"halfplane+{M}+{FIX}",
+        ),
+        ("Quadrant \\cite{li2016improved}", "quadrant", f"quadrant+{M}", f"quadrant+{M}+{FIX}"),
+        (
+            "Regional",
+            "regional",
+            f"regional+{M}+region_share=0.001,0.005",
+            f"regional+{M}+{FIX}+region_share=0.001,0.005",
+        ),
+        (
+            "Graph \\cite{jordan2025crossover}",
+            "graph",
+            f"graph+{M}+graph_centres=1+graph_depth=1",
+            f"graph+{M}+{FIX}+graph_centres=1+graph_depth=1",
+        ),
+        ("Union \\cite{alp2003efficient}", "union", f"union+{M}", f"union+{M}+mating=size"),
+    ]
+    out.append(
+        r"""\begin{table}[htbp]
+\centering
+\small
+\caption{Crossovers of the literature in the same algorithm (same mutation, initialization and survival as PX+), at the same computing time: HV4, mean of 30 runs, and $\hat{A}_{12}$ of PX+ against each. Original: as published, mating any two parents and repairing at random (the union crossover needs no repair); +MR: with same-size mating and load-guided repair, as in PX+. Holm-corrected Mann--Whitney U within each city; $^\dagger$: not significant. Last row: PX+.}
+\label{tab:literature}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ll"""
+        + "cc" * len(CITIES)
+        + r"""}
+\toprule
+& & """
+        + " & ".join(f"\\multicolumn{{2}}{{c}}{{\\textbf{{{NAMES[c]}}}}}" for c in CITIES)
+        + r""" \\
+"""
+        + " ".join(f"\\cmidrule(lr){{{3 + 2 * i}-{4 + 2 * i}}}" for i in range(len(CITIES)))
+        + r"""
+\textbf{Crossover} & \textbf{Form} & """
+        + " & ".join("HV4 & $\\hat{A}_{12}$" for _ in CITIES)
+        + r""" \\
+\midrule"""
+    )
+    for label, _, original, fixed in literature:
+        for i, (v, form) in enumerate(((original, "Original"), (fixed, "+MR"))):
+            if not all(v in ops[c]["variants"] for c in CITIES):
+                continue
+            name = f"\\multirow{{2}}{{*}}{{{label}}}" if i == 0 else ""
+            out.append(
+                f"{name} & {form} & "
+                + " & ".join(f"{hv(c, v, sd=False)} & {vs(c, v)}" for c in CITIES)
+                + r" \\"
+            )
+        out.append(r"\midrule")
+    out.append(
+        r"\textbf{PX+} & & "
+        + " & ".join(f"\\textbf{{{hv(c, PXP, sd=False)}}} & --" for c in CITIES)
+        + r" \\"
+    )
     out.append(r"""\bottomrule
 \end{tabular}}
 \end{table}
 """)
 
     ablations = [
-        ("partition", "Any mating"),
-        ("partition+mating=size+tile=1.0", "Tiles $\\times 1$"),
-        ("partition+mating=size+tile=4.0", "Tiles $\\times 4$"),
-        ("partition+mating=size+tile_equity=True", "Equity per tile"),
-        ("regional+mating=size+guided_repair=True+region_share=0.001,0.005", "Blind regions"),
+        ("partition+mating=size+init=mixed", "Without centroid moves"),
+        ("partition+mating=size+centroid_moves=0.8", "Random initialization"),
+        (f"partition+{M}", "Any mating"),
+        (f"partition+mating=size+{M}+tile=1.0", "Tiles of 1 spacing"),
+        (f"partition+mating=size+{M}+tile=4.0", "Tiles of 4 spacings"),
+        (f"partition+mating=size+{M}+tile_equity=True", "Equity per tile"),
+        (
+            f"partition+mating=size+{M}+tile_equity=True+crossover_rate=0.5+generations=900",
+            "Equity per tile, $p_c = 0.5$, 900 gen.",
+        ),
     ]
     out.append(
         r"""\begin{table}[htbp]
 \centering
 \small
-\caption{Variants of the partition crossover (PX) at the same computing time as Table~\ref{tab:operators}: HV4, mean of 30 runs, and $\hat{A}_{12}$ of PX against each variant. Any mating: parents of any size; tiles $\times 1$ and $\times 4$: tile side of one and four mean spacings (PX: two); equity per tile: inequity as a fourth criterion in each tile; blind regions: regional crossover with small regions, same-size mating and load-guided repair, i.e., PX without the choice of the better parent.}
+\caption{Ablation of PX+ at the same computing time: HV4, mean of 30 runs, and $\hat{A}_{12}$ of PX+ against each variant ($^\dagger$: not significant), and the inequity (points) of the fairest layout of the front, mean of 30 runs. Each variant changes one component of PX+ (tiles of 2 spacings, $p_c = 0.9$); the last one also runs three times as many generations, and is scored at the same time as the others.}
 \label{tab:operator_ablation}
 \resizebox{\textwidth}{!}{%
-\begin{tabular}{lc"""
-        + "cc" * len(ablations)
+\begin{tabular}{l"""
+        + "ccc" * len(CITIES)
         + r"""}
 \toprule
-& \textbf{PX} & """
-        + " & ".join(f"\\multicolumn{{2}}{{c}}{{\\textbf{{{name}}}}}" for _, name in ablations)
+& """
+        + " & ".join(f"\\multicolumn{{3}}{{c}}{{\\textbf{{{NAMES[c]}}}}}" for c in CITIES)
         + r""" \\
 """
-        + " ".join(f"\\cmidrule(lr){{{3 + 2 * i}-{4 + 2 * i}}}" for i in range(len(ablations)))
+        + " ".join(f"\\cmidrule(lr){{{2 + 3 * i}-{4 + 3 * i}}}" for i in range(len(CITIES)))
         + r"""
-\textbf{City} & HV4 & """
-        + " & ".join("HV4 & $\\hat{A}_{12}$" for _ in ablations)
+\textbf{Variant} & """
+        + " & ".join("HV4 & $\\hat{A}_{12}$ & $f_3^{\\min}$" for _ in CITIES)
         + r""" \\
 \midrule"""
     )
-    for c in CITIES:
-        V = ops[c]["variants"]
-        cells = [f"{V[P]['summary']['hv_at_time']['mean']:.4f}"]
-        for v, _ in ablations:
-            cells += [f"{V[v]['summary']['hv_at_time']['mean']:.4f}", vs(c, v)]
-        out.append(f"{NAMES[c]} & " + " & ".join(cells) + r" \\")
+
+    def fairest(c, v):
+        return f"{100 * np.mean(ops[c]['variants'][v]['min_inequity']):.2f}"
+
+    out.append(
+        r"\textbf{PX+} & "
+        + " & ".join(f"\\textbf{{{hv(c, PXP, sd=False)}}} & -- & {fairest(c, PXP)}" for c in CITIES)
+        + r" \\"
+    )
+    for v, label in ablations:
+        if all(v in ops[c]["variants"] for c in CITIES):
+            out.append(
+                f"{label} & "
+                + " & ".join(f"{hv(c, v, sd=False)} & {vs(c, v)} & {fairest(c, v)}" for c in CITIES)
+                + r" \\"
+            )
+    out.append(
+        r"No crossover, 1,200 gen. & "
+        + " & ".join(
+            f"{hv(c, 'none+generations=1200', sd=False)} & {vs(c, 'none+generations=1200')} & "
+            f"{fairest(c, 'none+generations=1200')}"
+            for c in CITIES
+        )
+        + r" \\"
+    )
     out.append(r"""\bottomrule
 \end{tabular}}
+\end{table}
+""")
+
+seeds_file = os.path.join(RESULTS, "seeds.json")
+if os.path.exists(seeds_file):
+    seeds = json.load(open(seeds_file))
+    kinds = [
+        ("random", "Random"),
+        ("demand-0", "Demand, $e = 0$"),
+        ("demand-1", "Demand, $e = 1$"),
+        ("demand-2", "Demand, $e = 2$"),
+        ("balanced", "Balanced"),
+    ]
+    out.append(
+        r"""\begin{table}[htbp]
+\centering
+\small
+\caption{Initial layouts with today's number of containers $k_0$: unserved people, inequity (points) and mean distance (m), mean of 30 layouts of each kind, and today's layout. Random: $k_0$ candidates at random; demand: population-weighted $k$-means++ seeding with exponent $e$; balanced: recursive bisection into cells of equal population. Last column: time to build one layout (ms).}
+\label{tab:seeds}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ll"""
+        + "rrr" * 1
+        + r"""r}
+\toprule
+\textbf{City} & \textbf{Layout} & \textbf{Unserved} & \textbf{Inequity} & \textbf{Distance} & \textbf{ms} \\
+\midrule"""
+    )
+    for c in CITIES:
+        if c not in seeds:
+            continue
+        s = seeds[c]
+        cur = s["current"]
+        rows = [("Today", cur, None)] + [
+            (label, np.mean(s[k]["values"], 0), s[k]["ms"]) for k, label in kinds
+        ]
+        for i, (label, v, ms) in enumerate(rows):
+            city = f"\\multirow{{{len(rows)}}}{{*}}{{{NAMES[c]}}}" if i == 0 else ""
+            msx = "--" if ms is None else f"{ms:.0f}"
+            out.append(
+                f"{city} & {label} & {v[0]:,.0f} & {100 * v[1]:.1f} & {v[2]:.0f} & {msx} \\\\"
+            )
+        out.append(r"\midrule" if c != CITIES[-1] else r"\bottomrule")
+    out.append(r"""\end{tabular}}
+\end{table}
+""")
+
+components_file = os.path.join(RESULTS, "components.json")
+if os.path.exists(components_file):
+    comp = json.load(open(components_file))
+    out.append(r"""\begin{table}[htbp]
+\centering
+\small
+\caption{Exact decomposition of pairs of layouts with the same number of containers from the final PX+ fronts (10 runs per city): pairs, median number of locations in which they differ, share of pairs whose differences form a single independent component, median number of components, and mean share of the differing locations in the largest component.}
+\label{tab:components}
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{City} & \textbf{Pairs} & \textbf{Differing} & \textbf{One component} & \textbf{Components} & \textbf{Largest} \\
+\midrule""")
+    for c in CITIES:
+        if c in comp:
+            r = comp[c]
+            out.append(
+                f"{NAMES[c]} & {r['pairs']} & {r['median_differing_sites']:.0f} & "
+                f"{100 * r['single_component']:.0f}\\% & {r['median_components']:.0f} & "
+                f"{100 * r['mean_largest_share']:.0f}\\% \\\\"
+            )
+    out.append(r"""\bottomrule
+\end{tabular}
 \end{table}
 """)
 
