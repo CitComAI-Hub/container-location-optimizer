@@ -51,7 +51,7 @@ class ParetoParameters:
     service_level: float = 1000
     generations: int = 200
     population_size: int = 100
-    crossover: str = "regional"  # or "uniform"
+    crossover: str = "regional"  # or "uniform", or "graph" (Jordán et al.)
     crossover_rate: float = 0.9
     mutation: float = 0.5  # probability that a child is mutated
     moved_share: float = 0.02  # share of its sites a mutation changes
@@ -59,6 +59,12 @@ class ParetoParameters:
     resize: float = 0.2  # probability that a mutation also changes the number of containers
     levels: int = 11  # allowed numbers of containers, evenly spaced in the range (0: all)
     region_share: tuple[float, float] = (0.1, 0.5)  # share of candidates in the disc
+    graph_centres: int = 1  # graph crossover: subgraphs exchanged
+    graph_depth: int = 5  # graph crossover: hops from each centre (Delaunay graph)
+    # Switches for the ablation study (all on in the service)
+    quantize: bool = True  # compare unserved people in steps of service_level / 10
+    guided_resize: bool = True  # resize by the loads of the sites (else at random)
+    seed_current: bool = True  # seed the current layout into the first population
     distance: bool = True  # 4th objective: mean distance to the nearest container
     algorithm: str = "nsga2"  # or "nsga3" (reference-direction survival; needs pymoo)
     cell: float = 500.0  # equity: cell size (m)
@@ -108,8 +114,8 @@ class ParetoAlgorithm:
             raise ValueError(
                 f"containers must satisfy 1 <= min <= max <= {problem.size} (candidate sites)"
             )
-        if params.crossover not in ("regional", "uniform"):
-            raise ValueError("crossover must be 'regional' or 'uniform'")
+        if params.crossover not in ("regional", "uniform", "graph"):
+            raise ValueError("crossover must be 'regional', 'uniform' or 'graph'")
         if params.algorithm not in ("nsga2", "nsga3"):
             raise ValueError("algorithm must be 'nsga2' or 'nsga3'")
         self.n_objectives = 4 if params.distance else 3
@@ -155,7 +161,9 @@ class ParetoAlgorithm:
             # differences are below the population of a pixel (noise), and
             # would shelter unfair layouts from layouts as good but fairer
             step = max(1.0, self.params.service_level / 10)
-            unserved = np.floor(m["unserved"] / step) * step
+            unserved = m["unserved"]
+            if self.params.quantize:
+                unserved = np.floor(unserved / step) * step
             f = [m["containers"], unserved, m["inequity"]]
             if self.params.distance:
                 f.append(round(m["evaluation"].mean_distance, 1))
@@ -217,6 +225,8 @@ class ParetoAlgorithm:
 
     def seeds(self) -> list[np.ndarray]:
         """The current layout, cut or extended to the nearest allowed size."""
+        if not self.params.seed_current:
+            return []
         k = self._snap(self.problem.current_containers)
         return [self.problem.seed(k, self.rng)]
 
@@ -229,6 +239,8 @@ class ParetoAlgorithm:
                 self._repair(np.concatenate((common, others[take]))),
                 self._repair(np.concatenate((common, others[~take]))),
             )
+        if self.params.crossover == "graph":
+            return self._exchange(a, b, self._graph_region())
         # Regional: a disc around a random candidate holding a random share of them
         xy = self.problem.candidates_xy
         centre = xy[self.rng.integers(len(xy))]
@@ -237,10 +249,42 @@ class ParetoAlgorithm:
         _, inside = self.problem.candidate_tree.query(centre, k=k)
         mask = np.zeros(len(xy), dtype=bool)
         mask[np.atleast_1d(inside)] = True
+        return self._exchange(a, b, mask)
+
+    def _exchange(self, a: np.ndarray, b: np.ndarray, mask: np.ndarray):
+        """Children that swap the parents' sites inside the region ``mask``."""
         return (
             self._repair(np.concatenate((a[~mask[a]], b[mask[b]]))),
             self._repair(np.concatenate((b[~mask[b]], a[mask[a]]))),
         )
+
+    def _graph_region(self) -> np.ndarray:
+        """Graph crossover (Jordán et al., 2025): the union of ``graph_centres``
+        subgraphs, each a random candidate and its neighbours up to
+        ``graph_depth`` hops in the Delaunay graph of the candidates."""
+        if not hasattr(self, "_graph"):
+            from scipy.spatial import Delaunay
+
+            n = self.problem.size
+            if n >= 4:
+                indptr, indices = Delaunay(self.problem.candidates_xy).vertex_neighbor_vertices
+            else:
+                indptr, indices = np.arange(n + 1) * 0, np.array([], dtype=int)
+            self._graph = (indptr, indices)
+        indptr, indices = self._graph
+        mask = np.zeros(self.problem.size, dtype=bool)
+        for _ in range(self.params.graph_centres):
+            frontier = np.array([self.rng.integers(self.problem.size)])
+            mask[frontier] = True
+            for _ in range(self.params.graph_depth):
+                nxt = np.concatenate([indices[indptr[i] : indptr[i + 1]] for i in frontier])
+                nxt = nxt[~mask[nxt]] if nxt.size else nxt
+                if not nxt.size:
+                    break
+                nxt = np.unique(nxt)
+                mask[nxt] = True
+                frontier = nxt
+        return mask
 
     def mutate(self, layout: np.ndarray) -> np.ndarray:
         """Move sites (mostly to a neighbour candidate); sometimes, also change
@@ -269,7 +313,8 @@ class ParetoAlgorithm:
             level = int(np.searchsorted(self.levels, len(sites)))
             level += 1 if self.rng.random() < 0.5 else -1
             level = min(max(level, 0), self.levels.size - 1)
-            sites = self._resize(sites, int(self.levels[level]), loads)
+            guide = loads if p.guided_resize else None
+            sites = self._resize(sites, int(self.levels[level]), guide)
         return self._repair(np.asarray(sites, dtype=int))
 
     # -- loop --------------------------------------------------------- #

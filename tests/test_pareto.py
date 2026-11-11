@@ -53,7 +53,7 @@ def test_front_is_non_dominated_and_within_the_range(problem):
 
 
 def test_both_crossovers_keep_the_allowed_sizes(problem):
-    for crossover in ("regional", "uniform"):
+    for crossover in ("regional", "uniform", "graph"):
         params = ParetoParameters(
             min_containers=3, max_containers=9, levels=3, crossover=crossover, seed=2
         )
@@ -81,3 +81,36 @@ def test_nsga3_with_four_objectives(problem):
     F = np.array([algorithm.objectives(x)[0] for x in front])
     assert F.shape[1] == 4
     assert len(non_dominated_fronts(F)[0]) == len(front)
+
+
+def test_graph_region_grows_with_depth(problem):
+    sizes = []
+    for depth in (0, 1, 3):
+        algorithm = ParetoAlgorithm(
+            problem,
+            ParetoParameters(
+                min_containers=2, max_containers=8, crossover="graph", graph_depth=depth, seed=3
+            ),
+        )
+        sizes.append(algorithm._graph_region().sum())
+    assert sizes[0] == 1 and sizes[0] < sizes[1] < sizes[2]
+
+
+def test_ablation_switches(problem):
+    params = ParetoParameters(
+        min_containers=2,
+        max_containers=8,
+        generations=3,
+        population_size=10,
+        levels=0,
+        quantize=False,
+        guided_resize=False,
+        seed_current=False,
+        local_moves=0.0,
+        seed=4,
+    )
+    algorithm = ParetoAlgorithm(problem, params)
+    assert algorithm.seeds() == []
+    assert algorithm.levels.tolist() == list(range(2, 9))
+    front, _ = algorithm.run()
+    assert front

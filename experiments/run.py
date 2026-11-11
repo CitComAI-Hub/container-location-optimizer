@@ -1,6 +1,7 @@
 """One run of the trade-off algorithm: python run.py CITY ALGORITHM OBJECTIVES CROSSOVER SEED
 
-ALGORITHM nsga2 or nsga3, OBJECTIVES 3 or 4 (4: plus mean distance), CROSSOVER regional or uniform.
+ALGORITHM nsga2 or nsga3, OBJECTIVES 3 or 4 (4: plus mean distance), CROSSOVER regional,
+uniform or graph; then optional ParetoParameters as key=value.
 Writes results/CITY_ALGORITHM-OBJECTIVES_CROSSOVER_SEED.npz.
 """
 
@@ -23,7 +24,19 @@ city, algorithm, n_obj, cx, seed = (
     sys.argv[4],
     int(sys.argv[5]),
 )
-out = os.path.join(RESULTS, f"{city}_{algorithm}-{n_obj}_{cx}_{seed}.npz")
+# Extra parameters as key=value (e.g. levels=0 quantize=False cell=250 radius=500),
+# named in the file: CITY_ALGORITHM-OBJECTIVES_CROSSOVER+key=value_SEED.npz
+extra = {}
+for arg in sys.argv[6:]:
+    key, value = arg.split("=", 1)
+    if value in ("True", "False"):
+        extra[key] = value == "True"
+    elif "," in value:  # a tuple, e.g. region_share=0.01,0.05
+        extra[key] = tuple(float(v) for v in value.split(","))
+    else:
+        extra[key] = float(value) if "." in value else int(value)
+tag = "".join(f"+{arg}" for arg in sys.argv[6:])
+out = os.path.join(RESULTS, f"{city}_{algorithm}-{n_obj}_{cx}{tag}_{seed}.npz")
 if os.path.exists(out):
     sys.exit(0)
 p = load(city)
@@ -47,6 +60,7 @@ params = ParetoParameters(
     algorithm=algorithm,
     distance=n_obj == 4,
     seed=seed,
+    **extra,
 )
 alg = Recorded(p, params)
 t = time.time()
