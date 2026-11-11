@@ -1,0 +1,16 @@
+{
+ "malaga": {
+  "k0": 90,
+  "lower_bound": 269.8408199286356,
+  "lagrangian_heuristic": 299.378154963374,
+  "best_known": 279.6446531844769,
+  "single": 281.9213968646087,
+  "front_closest": 294.47512161660546,
+  "best_known_layout": {
+   "unserved": 438323.81076402817,
+   "inequity": 0.0463,
+   "mean_distance": 279.6446531000522,
+   "p95": 550.6157483703367
+  }
+ }
+}

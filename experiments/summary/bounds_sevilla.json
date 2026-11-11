@@ -1,0 +1,16 @@
+{
+ "sevilla": {
+  "k0": 96,
+  "lower_bound": 277.55448310851074,
+  "lagrangian_heuristic": 314.26753364127364,
+  "best_known": 288.181107438683,
+  "single": 288.181107438683,
+  "front_closest": 298.33411931142854,
+  "best_known_layout": {
+   "unserved": 591205.1971932526,
+   "inequity": 0.027,
+   "mean_distance": 288.54349862876995,
+   "p95": 567.6243632358689
+  }
+ }
+}

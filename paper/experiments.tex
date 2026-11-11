@@ -1,0 +1,110 @@
+\section{Computational experiments}
+\label{computational_experiments}
+This section evaluates the proposed algorithm on real data from five Spanish cities with different urban characteristics. We first describe the data and the experimental design. We then compare the survival strategies of NSGA-II and NSGA-III and the three- and four-objective formulations, study whether recombination helps, assess the contribution of each component of the algorithm, examine the equity measure, bound the accessibility of the solutions, and finally compare them with the layouts currently deployed in each city.
+
+\subsection{Data preparation}
+For each city, the candidate locations for UCO containers are the sites of the other container types (organic waste, paper, plastic, etc.) available in the municipal open data portals\footnote{Portals used: \url{https://valencia.opendatasoft.com}, \url{https://www.donostia.eus/datosabiertos/}, \url{https://opendata.esri.es/datasets/ideSEVILLA::contenedores-de-recogida-de-residuos/}, \url{https://datosabiertos.malaga.eu/}, \url{https://www10.ava.es/portalva/apps/webappviewer/index.html?id=40aa1fa90bfa43578280d3943779e273}}. These sites already have accessibility, municipal permits and maintenance, which minimizes implementation barriers. Since many of them are clustered within short distances, candidates closer than 50\,m to another one are removed. The sites of the existing UCO containers are added to the candidates, so the current layout belongs to the search space. Population comes from GHS-POP R2023A (epoch 2030 for Donostia, Valladolid and Valencia, 2025 for Málaga and Sevilla). Table~\ref{city_summary} summarizes the five instances.
+
+\begin{table}[htbp]
+\caption{The five instances: candidate locations (after the 50\,m filter), current UCO containers, population in the study area, area, density, current inhabitants per container, and share of the population that the current network can serve with $\alpha = 1000$.}
+\centering
+\small
+\label{city_summary}
+\begin{tabular}{lrrrrrrr}
+\toprule
+\textbf{City} & \textbf{Candidates} & \textbf{Current} & \textbf{Population} & \textbf{Area (km\textsuperscript{2})} & \textbf{Density (inh./km\textsuperscript{2})} & \textbf{Inh./container} & \textbf{Capacity share} \\
+\midrule
+Donostia   & 674  & 111 & 179,963 & 18.9 & 9,506  & 1,621 & 62\% \\
+Valladolid & 1,235 & 174 & 273,403 & 39.0 & 7,006  & 1,571 & 64\% \\
+Valencia   & 3,234 & 352 & 796,497 & 61.6 & 12,936 & 2,263 & 44\% \\
+Málaga     & 1,842 & 90  & 528,324 & 66.0 & 8,004  & 5,870 & 17\% \\
+Sevilla    & 1,744 & 96  & 687,205 & 69.9 & 9,833  & 7,158 & 14\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The service level $\alpha$ is defined from container capacity and waste generation. UCO containers typically have a capacity of 450 liters, while the estimated amount of waste cooking oil generated per person per year is 4 liters according to Spanish environmental authorities \cite{miteco}. Approximately 11 liters of UCO are therefore generated per day for every 1,000 inhabitants and, if all of it were collected, a container would be full in about 41 days, in line with monthly to bi-monthly municipal collection cycles. Accordingly, we set $\alpha = 1000$ inhabitants per container. As the last column of Table~\ref{city_summary} shows, no city has enough containers to serve its whole population at this level, and Málaga and Sevilla are far from it.
+
+\subsection{Experimental setup}
+For each city, the range of network sizes is from half to 1.5 times the current number of containers, $k_{\min} = \lfloor k_0/2 \rfloor$ and $k_{\max} = \mathrm{round}(1.5\, k_0)$, divided into $m = 11$ allowed sizes plus $k_0$. Every run lasts $G = 300$ generations with a population of $\mu = 100$, mutation probability $p_m = 0.5$, moved share $\beta = 0.02$, local-move probability $p_\ell = 0.8$ and resize probability $p_r = 0.2$; when a crossover is used, its probability is $p_c = 0.9$. These values were set by hand on Donostia and kept for all cities and variants.
+
+We report five studies, all with 30 independent runs per variant and city, each run on one dedicated core of a computing cluster:
+\begin{enumerate}
+\item a full factorial design with the survival strategy (NSGA-II or NSGA-III), the formulation (three objectives, $f_1$--$f_3$, or four, $f_1$--$f_4$) and the crossover (regional with large regions, $\rho \in [0.1, 0.5]$, or uniform);
+\item a study of recombination with NSGA-II and four objectives: no crossover, and regional and graph crossover with parameters tuned beforehand (Section~\ref{sec:recombination});
+\item an ablation of the recommended configuration (NSGA-II, four objectives, no crossover), removing one component at a time;
+\item the robustness of the equity measure to its parameters and its relation to classical measures;
+\item lower bounds on the accessibility that can be reached with today's number of containers.
+\end{enumerate}
+In total, the studies comprise 3,490 runs (including the tuning runs), plus 5 runs per city of the single-objective algorithm of the deployed service for comparison. A run without crossover took between 15\,s (Donostia) and 38\,s (Sevilla); with crossover, between 25\,s and 118\,s (Section~\ref{sec:recombination}).
+
+The quality of a front is measured by its hypervolume (HV) \cite{zitzler1999multiobjective}. For each city, the objectives are normalized to $[0,1]$ with bounds common to all the variants of studies 1 and 2: $f_1$ over $[k_{\min}, k_{\max}]$, $f_2$ and $f_4$ between the best and worst values found (or the value of the current layout, if worse), and $f_3$ between 0 and the worst value. The reference point is $1.1$ in every objective. Each variant is scored in the space of its own formulation (HV3 or HV4); since every run records the four objectives of its layouts, the formulations are also compared by scoring all fronts in both spaces. Variants are compared per city with the two-sided Mann--Whitney U test, with Holm's correction for all the comparisons made in each city, and with the Vargha--Delaney $\hat{A}_{12}$ effect size \cite{vargha2000critique}, the probability that a run of one variant beats a run of the other.
+
+\subsection{Survival strategy and formulation}
+\input{figures/table_hv}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/convergence.pdf}
+    \caption{Hypervolume of the front along the generations in the factorial study, in the space of each formulation: mean and standard deviation of 30 runs per variant. Colour: survival strategy; line style: crossover.}
+    \label{fig:convergence}
+\end{figure}
+
+Table~\ref{tab:hv} and Figure~\ref{fig:convergence} show the factorial study. NSGA-III, designed for problems with many objectives, brings no improvement (last column). With three objectives, the differences are not significant in three cities, and NSGA-II is significantly better in Valladolid ($\hat{A}_{12} = 0.23$ for NSGA-III) and Valencia ($0.29$); with four objectives, no difference is significant ($0.37 \leq \hat{A}_{12} \leq 0.52$). We attribute this to the structure of the problem: the discrete set of sizes already spreads the population along $f_1$, and the guided mutation, rather than the survival step, drives the search (Section~\ref{sec:ablation}). Since NSGA-II is simpler and needs no reference directions, we use it in the rest of the paper and in the service. The two crossovers of this study are compared in Section~\ref{sec:recombination}.
+
+\input{figures/table_formulation}
+
+Table~\ref{tab:formulation} scores the fronts of both formulations (NSGA-II without crossover) in both objective spaces. Adding distance as a fourth objective has a small cost in the three-objective space, where the HV3 of the four-objective fronts is between 2.1\% (Valencia) and 3.3\% (Málaga) lower, and a large gain in the four-objective space, where their HV4 is between 5.8\% (Donostia) and 22.6\% (Sevilla) higher. Both differences are significant in every city. The same holds with regional crossover and with NSGA-III.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/tradeoff_k0.pdf}
+    \caption{Layouts with today's number of containers $k_0$ and no more unserved people than today, from the 30 fronts of each formulation (NSGA-II without crossover), in the plane of mean distance and spatial inequity; lines join the non-dominated ones. Diamond: current layout; square: single-objective algorithm (median of 5 runs).}
+    \label{fig:tradeoff}
+\end{figure}
+
+Figure~\ref{fig:tradeoff} shows what this means for a planner who keeps today's number of containers. The three-objective fronts concentrate on the fairest layouts and leave accessibility to chance: in Málaga and Sevilla their layouts are 330--400\,m away on average, 50--115\,m more than the single-objective solution. The four-objective fronts cover the whole trade-off, from layouts as accessible as the single-objective solution, and fairer, to layouts nearly as fair as the three-objective ones. In Valladolid and Valencia they include layouts that dominate the single-objective solution in both distance and inequity; in Donostia, Málaga and Sevilla, layouts within 2--15\,m of its distance with less inequity.
+
+\subsection{Recombination}
+\label{sec:recombination}
+The factorial study shows a large and consistent advantage of the regional crossover over the uniform crossover (Table~\ref{tab:hv}): it wins in all 20 comparisons, with $\hat{A}_{12} \geq 0.87$. This does not mean that recombination helps, only that one crossover is less harmful than the other. To find out, we compared crossovers with no crossover at all, after giving each spatial crossover a fair chance. Both were tuned with the same protocol on two cities (Donostia and Valencia, 10 runs each): the regional crossover over six ranges of region size, from $\rho \in [0.001, 0.005]$ to $[0.1, 0.5]$, and the graph crossover over ten combinations of the number of subgraphs $g \in \{1, 3, 10\}$ and their depth $h \in \{1, \dots, 20\}$. The configuration with the best mean rank over both cities was kept: the smallest regions for the regional crossover ($[0.001, 0.005]$, i.e., 1--16 candidates), and one subgraph of depth 1 (a candidate and its Delaunay neighbours) for the graph crossover. In both cases, the smaller the exchanged region, the better.
+
+\input{figures/table_recombination}
+
+Table~\ref{tab:recombination} shows the result. Recombination brings no improvement. The tuned crossovers are statistically indistinguishable from no crossover in four cities, and worse in Donostia ($\hat{A}_{12} = 0.31$ and $0.25$); the crossovers with large regions and the uniform crossover are clearly worse in every city ($\hat{A}_{12} \leq 0.18$). Moreover, the best crossovers exchange so few locations that they act as an additional mutation. No crossover is also cheaper: since half of the offspring are unmutated copies of their parents, which need no new evaluation, a run is 1.6 to 2.4 times faster than with the small-region crossovers, and up to three times faster than with the large ones. We therefore recommend, and use in the service, NSGA-II without crossover. In our problem, the locations interact through the Voronoi cells and the shares of their neighbourhoods; exchanging even small, spatially coherent parts between two good layouts breaks those interactions more often than it combines their strengths, while small guided moves improve them.
+
+\subsection{Ablation}
+\label{sec:ablation}
+\input{figures/table_ablation}
+
+Table~\ref{tab:ablation} removes one component of the recommended configuration at a time. The discrete set of sizes and the load-guided resizing are essential: without either of them, the HV4 drops by 18--45\% in every city ($\hat{A}_{12} = 1.00$). Allowing all sizes spreads the population too thinly for layouts of the same size to compete, and random resizing adds and removes containers where they matter least. The local moves of the mutation and the comparison of $f_2$ in steps of 100 people also contribute significantly in every city ($0.72 \leq \hat{A}_{12} \leq 1.00$). Seeding the current layout makes no difference in four cities, and in Sevilla it is slightly worse ($\hat{A}_{12} = 0.31$); its purpose is to guarantee that the front is never worse than the existing deployment, not to speed up the search.
+
+\subsection{The equity measure}
+\label{sec:equity_results}
+\input{figures/table_equity}
+
+Table~\ref{tab:equity} correlates $f_3$ with other measures over the layouts with today's number of containers of the 30 fronts of each city. $f_3$ is robust to its parameters: with blocks of 250\,m and neighbourhoods of 500\,m, or with blocks of 1\,km and neighbourhoods of 2\,km, it ranks the layouts in a similar order (Spearman $\rho$ between 0.65 and 0.90). The comparison of crossovers does not depend on these parameters either (Table~\ref{tab:sensitivity}): the regional crossover beats the uniform crossover in every city with both alternative settings ($\hat{A}_{12} \geq 0.96$). Moran's I of the blocks, computed on the same fixed support, is also correlated with $f_3$ ($0.66 \leq \rho \leq 0.85$): the intuition of the earlier formulation was sound, its shortcomings were the changing support and the insensitivity to magnitude. Conversely, the classical non-spatial measures rank the layouts differently: the Gini coefficient of the unserved share of each person is almost unrelated to $f_3$ ($-0.31 \leq \rho \leq 0.29$), and the Gini coefficient of the loads is weakly and inconsistently related to it ($-0.57 \leq \rho \leq 0.27$). They measure how unequal the shortage is, not where it is. Finally, $f_3$ is negatively correlated with the mean distance ($-0.62 \leq \rho \leq -0.84$) and with the Gini coefficient of distances: fairer layouts spread containers towards less dense areas, which lengthens the average walk, the trade-off that motivates $f_4$.
+
+\input{figures/table_sensitivity}
+
+\subsection{How accessible are the solutions?}
+\input{figures/table_bounds}
+
+With today's number of containers, minimizing $f_4$ alone is the $p$-median problem. Its Lagrangian relaxation gives a lower bound on the mean distance that any layout can achieve \cite{beasley1993lagrangean}, and its subproblems, improved by an alternating local search, give good feasible layouts. Table~\ref{tab:bounds} shows that the best known solutions are within 1.3--5.8\% of the lower bound, so the accessibility optimum is tightly bracketed. The most accessible layout of the four-objective fronts that is no worse than today's in unserved people and inequity is 6.0--8.4\% farther than the best known solution, a moderate price for being fair and serving at least as many people; and those best known solutions are themselves unfair (up to 12.2 inequity points in Valladolid). The single-objective algorithm of the service is close to the best known solution in Málaga and Sevilla, but 15.8\% above it in Valladolid, which shows room for improvement in that algorithm too.
+
+\subsection{Comparison with the current layouts}
+\input{figures/table_k0}
+
+In all 30 runs of every city, the four-objective front contained a layout with $k_0$ containers that is better than the current one in unserved people, inequity and mean distance at once. Table~\ref{tab:k0} details the typical (median) layouts. Relocating the existing containers reduces both the shortage and its inequity: in Donostia, the unserved population falls by 9\% (from 78,063 to about 71,400), the inequity from 8.5 to 1.9 points and the mean distance from 180 to 156\,m; in Valencia, the inequity falls from 9.6 to 2.4 points and the distance from 193 to 166\,m. In Málaga and Sevilla, where the shortage is fixed by the number of containers, relocation cannot serve more people, but it divides the inequity by 5.4 and 7.5, respectively, and shortens the mean distance by more than 100\,m. Figure~\ref{fig:map} shows where this happens in Donostia: in the current layout, the shortage is concentrated in the central and southern districts, which have up to 25 points more unserved people than the city average, while the north-east has spare capacity; in the front layout, the differences between neighbourhoods shrink to a few points in most of the city.
+
+As noted in Section~\ref{problem_definition}, $f_2$ is close to its lower bound $P - \alpha|S|$ for almost every layout of the fronts, as no city has enough containers for its population. The trade-off between more containers and fewer unserved people is therefore nearly arithmetic, and the value of the optimization lies in where the containers go: the equity and accessibility of the layouts of each size.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.95\textwidth]{figures/map_donostia.pdf}
+    \caption{Donostia, 500\,m blocks colored by the unserved share of their 1\,km neighbourhood minus the city average, for the current layout (left) and the fairest layout with the same number of containers and no more unserved people, from the four-objective run with the median such fairness (right). Dots are the containers.}
+    \label{fig:map}
+\end{figure}
+
+\subsection{Integration in a data space}
+The method is deployed as a service of the CitCom.ai data space, which reads the inventory of containers of a city through NGSI-LD (Smart Data Models \texttt{WasteContainer} entities) from the city's connector, and the population from GHS-POP, so it can be applied to any city that publishes its containers. A job runs in a single low-priority process. With the recommended configuration (NSGA-II, four objectives, no crossover, 300 generations, 100 individuals), it computes the front of Valencia in under a minute on one core of the cluster, and in a few minutes in the deployed service, where it runs at low priority on a shared node with the 8,308 candidate sites of the city's data. The planner can then browse the front and display any of its layouts on a map, compared with the current one.

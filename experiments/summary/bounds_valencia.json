@@ -1,0 +1,16 @@
+{
+ "valencia": {
+  "k0": 352,
+  "lower_bound": 140.33207115057647,
+  "lagrangian_heuristic": 158.10391571190752,
+  "best_known": 148.4364577236555,
+  "single": 156.67787052181424,
+  "front_closest": 155.46344989113967,
+  "best_known_layout": {
+   "unserved": 444496.6535434529,
+   "inequity": 0.0426,
+   "mean_distance": 148.43645775554126,
+   "p95": 310.71789191211093
+  }
+ }
+}

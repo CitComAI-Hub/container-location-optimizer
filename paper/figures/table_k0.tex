@@ -1,0 +1,41 @@
+\begin{table}[htbp]
+\centering
+\small
+\caption{Layouts with today's number of containers $k_0$: the current one; the single-objective genetic algorithm (median of 5 runs); and, among the layouts of each front that are no worse than the current one in unserved people and inequity, the fairest and the one with the shortest mean distance (medians over 30 runs, NSGA-II without crossover). Distances are straight-line and population-weighted.}
+\label{tab:k0}
+\begin{tabular}{llrrrr}
+\toprule
+\textbf{City} & \textbf{Layout} & \textbf{Unserved} & \textbf{Inequity (pts)} & \textbf{Mean dist. (m)} & \textbf{95\% within (m)} \\
+\midrule
+\multirow{5}{*}{\shortstack[l]{Donostia\\($k_0=111$)}} & Current & 78,063 & 8.5 & 180 & 435 \\
+ & Single-objective GA & 68,991 & 5.0 & 140 & 285 \\
+ & 3 obj., fairest & 69,955 & 1.2 & 161 & 359 \\
+ & 4 obj., fairest & 71,360 & 1.9 & 156 & 334 \\
+ & 4 obj., shortest distance & 69,101 & 4.6 & 143 & 300 \\
+\midrule
+\multirow{5}{*}{\shortstack[l]{Valladolid\\($k_0=174$)}} & Current & 111,812 & 12.5 & 235 & 650 \\
+ & Single-objective GA & 99,484 & 10.1 & 195 & 415 \\
+ & 3 obj., fairest & 110,432 & 5.9 & 225 & 523 \\
+ & 4 obj., fairest & 109,851 & 6.4 & 221 & 496 \\
+ & 4 obj., shortest distance & 99,936 & 9.1 & 181 & 425 \\
+\midrule
+\multirow{5}{*}{\shortstack[l]{Valencia\\($k_0=352$)}} & Current & 455,407 & 9.6 & 193 & 517 \\
+ & Single-objective GA & 444,497 & 4.6 & 157 & 326 \\
+ & 3 obj., fairest & 447,145 & 2.0 & 172 & 378 \\
+ & 4 obj., fairest & 446,503 & 2.4 & 166 & 357 \\
+ & 4 obj., shortest distance & 444,497 & 3.4 & 158 & 338 \\
+\midrule
+\multirow{5}{*}{\shortstack[l]{Málaga\\($k_0=90$)}} & Current & 438,324 & 7.0 & 443 & 1525 \\
+ & Single-objective GA & 438,324 & 3.9 & 282 & 558 \\
+ & 3 obj., fairest & 438,324 & 1.0 & 379 & 906 \\
+ & 4 obj., fairest & 438,324 & 1.3 & 319 & 711 \\
+ & 4 obj., shortest distance & 438,324 & 2.0 & 303 & 663 \\
+\midrule
+\multirow{5}{*}{\shortstack[l]{Sevilla\\($k_0=96$)}} & Current & 592,162 & 7.5 & 431 & 896 \\
+ & Single-objective GA & 591,205 & 1.8 & 288 & 573 \\
+ & 3 obj., fairest & 591,205 & 0.7 & 374 & 843 \\
+ & 4 obj., fairest & 591,205 & 1.0 & 327 & 691 \\
+ & 4 obj., shortest distance & 591,205 & 1.5 & 305 & 631 \\
+\bottomrule
+\end{tabular}
+\end{table}

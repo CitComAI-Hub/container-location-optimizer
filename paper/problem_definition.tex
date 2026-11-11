@@ -1,0 +1,56 @@
+\section{Problem Definition}
+\label{problem_definition}
+As mentioned above, this paper aims to address the problem of optimally locating UCO containers in an urban environment to ensure convenient access for a large share of citizens while keeping the number of containers low and the service fair across the city. To this end, the problem is modeled as a discrete FLP, with possible installation sites defined as $\mathcal{L} = \langle 1, \dots, n \rangle$, where each element $i$ represents a candidate location. A solution is a subset of locations $S \subseteq \mathcal{L}$, each hosting one container. Since a plan with no containers, or with containers everywhere, is of no practical interest, the planner states a range $k_{\min} \leq |S| \leq k_{\max}$ of acceptable network sizes, and every subset within it is a feasible solution.
+
+\subsection{Demand and service areas}
+Population is taken from the Global Human Settlement Layer (GHS-POP R2023A)\footnote{\url{https://human-settlement.emergency.copernicus.eu/ghs_pop2023.php}}, a grid of about $100 \times 100$\,m (3 arc-seconds) cells. Let $\mathcal{P}$ be the set of populated cells inside the study area, $p_j$ the number of people living in cell $j \in \mathcal{P}$, and $P = \sum_{j \in \mathcal{P}} p_j$ the total population. We assume that citizens use the container closest to their homes, as individuals tend to move as little as possible. The service area of a location $i \in S$ is therefore its Voronoi cell $\mathcal{V}_{S,i}$ \cite{erwig2000graph}, and its load is the population living in it. Computing the population of a polygon by overlaying it with the raster is expensive, so we use the equivalent discrete form: each population cell is assigned to the location of $S$ nearest to its centre, $a_S(j) = \arg\min_{i \in S} d(j,i)$, and the load of location $i$ is
+\begin{equation}
+    L(S,i) = \sum_{j \in \mathcal{P} : a_S(j) = i} p_j .
+\end{equation}
+The error of this approximation is bounded by the size of a grid cell, and it turns the evaluation of a solution into a nearest-neighbour query, which takes a few milliseconds even for the largest instances considered here (Section~\ref{computational_experiments}).
+
+\subsection{Objectives}
+The first objective is the size of the network. City planners operate under limited budgets, and installation and maintenance costs grow with the number of containers. Since real per-site costs were not available, and synthetic costs drawn from a narrow distribution are nearly proportional to the number of containers anyway, we minimize
+\begin{equation}
+    f_1(S) = |S| .
+\end{equation}
+Per-site costs $c_i$, if known, are a direct replacement ($f_1(S) = \sum_{i \in S} c_i$).
+
+UCO containers are intended for citizens' recycling and must be able to absorb the oil generated in their area. Let $\alpha$ be the maximum population that a container can serve (Section~\ref{computational_experiments} derives $\alpha = 1000$ inhabitants from container capacity and oil generation). Any population above $\alpha$ in a service area is left without effective service. The coverage excess of location $i$ is $E(S, i) = \max(0, L(S,i) - \alpha)$, and the second objective is the number of people left unserved:
+\begin{equation}
+    f_2(S) = \sum_{i \in S} E(S, i) .
+\end{equation}
+Note that $f_2(S) \geq \max(0, P - \alpha |S|)$: when the capacity of the network is below the population, as in all the cities studied here, at least that many people are unserved whatever the layout, and $f_2$ is close to that bound for any layout in which every container is saturated. The objective then says little about \emph{where} the shortage falls, which is the purpose of the third objective.
+
+\subsection{Spatial equity}
+\label{sec:equity}
+Some shortage is unavoidable, but it is fairer that every neighbourhood carries a similar share of it than that a few neighbourhoods carry most of it. The share of unserved people of a container with load $L(S,i) > \alpha$ is $1 - \alpha / L(S,i)$, and each person in its area inherits it, so the unserved people of a population cell are
+\begin{equation}
+    u_S(j) = p_j \cdot \max\left(0,\, 1 - \frac{\alpha}{L(S, a_S(j))}\right).
+\end{equation}
+Equity is measured on a fixed spatial support, independent of the solution. The study area is divided into square blocks of $500 \times 500$\,m, $\mathcal{B}$, and each population cell belongs to one block. The neighbourhood $N(b)$ of block $b$ is the set of blocks whose population-weighted centres lie within $r = 1$\,km of that of $b$ (including $b$ itself). The unserved share of the neighbourhood of $b$ is
+\begin{equation}
+    s_S(b) = \frac{\sum_{b' \in N(b)} \sum_{j \in b'} u_S(j)}{\sum_{b' \in N(b)} \sum_{j \in b'} p_j},
+\end{equation}
+and the third objective, the \emph{spatial inequity} of the solution, is the population-weighted standard deviation of these shares:
+\begin{equation}
+    f_3(S) = \sqrt{\frac{\sum_{b \in \mathcal{B}} q_b \left(s_S(b) - \bar{s}_S\right)^2}{\sum_{b \in \mathcal{B}} q_b}}, \qquad \bar{s}_S = \frac{\sum_{b} q_b\, s_S(b)}{\sum_{b} q_b},
+\end{equation}
+where $q_b$ is the population of block $b$. $f_3$ is expressed in the same units as a share (we report it in percentage points). It is zero when every neighbourhood has the same unserved share, either because everybody is served or because the shortage is spread evenly, and it grows when the shortage is both unequal and spatially concentrated. Unequal shares that are scattered at a finer scale than the neighbourhood average out in $s_S$ and are not penalised, since every neighbourhood then has containers with spare capacity within reach.
+
+\paragraph{Why not Moran's I.}
+An earlier version of this formulation measured equity with Moran's index of spatial autocorrelation \cite{moran1950notes}, computed on the coverage excess $E(S,i)$ of the selected locations with inverse-distance weights between them, and minimized it. That objective turned out to be ill-posed. First, its value is fixed by the number of observations rather than by the solution when $|S|$ is small: with two locations and row-standardized weights, $I = -1$ for any pair with different excess, so the optimizer is rewarded for degenerate solutions with two containers (and, since an empty solution has neither excess nor cost, it scores as an ideal point). Second, with weights between all pairs of locations, $I$ is nearly zero for every realistic layout: for random layouts with between half and 1.5 times the current number of containers, $|I| \leq 0.15$ in all the cities studied, with a standard deviation of at most $0.04$ over 30 layouts of each size, so the objective barely distinguishes between reasonable solutions. Third, $I$ is a correlation: it is invariant to the scale of the excess, so a layout in which a single container is overloaded by one person can have a more extreme $I$ than one in which a whole district is overloaded, and it is undefined when the excess is uniform. Finally, its spatial support (the service areas of the solution) changes from one solution to another, so the values of different solutions are not comparable.
+
+$f_3$ addresses these issues: its support (blocks and neighbourhoods) is fixed, so solutions of any size are comparable; and it measures the spatial \emph{covariance} of the shortage rather than its correlation. Indeed, $f_3^2$ is the variance of the spatially smoothed share, which grows with both the variance of the unserved share and its autocorrelation at the neighbourhood scale. We still report Moran's I of the block shares, with the neighbourhoods as weights, as a descriptive statistic.
+
+\paragraph{Relation to classical equity measures.}
+Equity in facility location has been measured in many ways \cite{marsh1994equity,barbati2016equality}: the range, variance or Gini coefficient of the distances to the facilities or of their loads, the maximum distance (as in the $p$-center problem), or envy-based measures. These measures are non-spatial: they depend on the distribution of a quantity across people or facilities, but not on where the disadvantaged people live. Two layouts with the same distribution of unserved shares across the population, one with the shortage scattered across the city and one with it concentrated in a district, have the same Gini coefficient but very different consequences for the neighbourhood left without service. $f_3$ is a variance, like several classical measures, but of a spatially smoothed quantity, so it captures concentration. Section~\ref{sec:equity_results} shows empirically that it is robust to the choice of block size and radius, and that it ranks layouts differently from the classical non-spatial measures.
+
+\subsection{Accessibility}
+\label{sec:accessibility}
+The objectives above say how many people each container can serve and how fairly the shortage is spread, but not how far citizens have to walk. Distance matters for participation, and it can conflict with equity: when capacity is scarce, spreading the shortage evenly may require placing containers in less dense areas, farther from most people. The fourth objective is the population-weighted mean straight-line distance from each population cell to its container:
+\begin{equation}
+    f_4(S) = \frac{1}{P} \sum_{j \in \mathcal{P}} p_j \, d\big(j, a_S(j)\big).
+\end{equation}
+
+We consider two formulations over the subsets of $\mathcal{L}$ with $k_{\min} \leq |S| \leq k_{\max}$: the tri-objective problem $(f_1, f_2, f_3)$, which captures size, shortage and equity, and the four-objective problem $(f_1, f_2, f_3, f_4)$, which adds accessibility. Section~\ref{computational_experiments} compares them.

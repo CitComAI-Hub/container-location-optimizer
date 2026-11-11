@@ -1,0 +1,52 @@
+\section{Multi-objective genetic algorithm}
+\label{ga_algorithm}
+The optimal placement of UCO containers in dense urban environments is a complex combinatorial optimization problem: there are thousands of candidate locations, and the objectives are conflicting and non-linear. This makes the problem suitable for metaheuristics. We build on the Non-dominated Sorting Genetic Algorithms NSGA-II \cite{deb2002fast} and NSGA-III \cite{deb2013evolutionary,jain2013evolutionary}, the former a standard for two or three objectives and the latter designed for three or more, and adapt their representation and operators to the spatial structure of the problem. Both share everything but the survival step. The search is driven by a guided mutation; Section~\ref{computational_experiments} shows that recombination, including two spatially structured crossovers, brings no further improvement. Algorithm~\ref{alg:nsga} summarizes the procedure.
+
+\subsection{Representation and allowed sizes}
+A solution $S$ is represented directly as the set of its selected locations (a sorted array of indices), rather than as a binary vector of length $n$. This makes the size of the network explicit, so that every individual can be kept within $[k_{\min}, k_{\max}]$ by construction, with no penalty functions, and makes operators cost proportional to $|S|$ instead of $n$.
+
+Since $f_1$ takes integer values and $f_2$ decreases almost linearly with $|S|$, a population of $\mu$ individuals spread over all the sizes in the range would hold about one individual per size, and solutions with the same size would rarely compete with each other on $f_3$. We therefore restrict the sizes to a set $K$ of $m$ evenly spaced values in $[k_{\min}, k_{\max}]$ ($m = 11$ in our experiments, i.e., steps of 10\% when the range is $\pm 50\%$ of the current network), plus the current number of containers, which allows direct comparison with the existing layout. Any solution produced by the operators is repaired to the nearest allowed size by removing random locations or adding locations next to existing ones.
+
+For the same reason, $f_2$ is compared in steps of $\alpha/10$ (100 people): smaller differences are below the population of a grid cell, and would otherwise protect unfair solutions from equally good but fairer ones.
+
+\subsection{Initialization}
+The initial population contains the current layout (the candidate locations nearest to the existing containers, cut or extended to the nearest allowed size) and $\mu-1$ random solutions, each with a size drawn uniformly from $K$. Seeding the current layout ensures, by elitism, that the final front is never worse than the existing deployment.
+
+\subsection{Selection and survival}
+Offspring and parents are merged, duplicates are removed, and the next population is formed by non-dominated sorting. The last front that does not fit entirely is truncated by crowding distance in NSGA-II \cite{deb2002fast}, and by niching around a set of reference directions in NSGA-III \cite{deb2013evolutionary}: the objectives are normalized with the ideal point and the intercepts of the hyperplane through the extreme points, each solution is associated with its nearest reference direction, and solutions are taken from the least crowded directions first. We use Das--Dennis reference directions, 91 for three objectives (12 partitions) and 84 for four (6 partitions), and the implementation of this survival step in \textit{pymoo} \cite{blank2020pymoo}. Parents are chosen by binary tournament on non-domination rank, with ties broken by crowding distance in NSGA-II and at random in NSGA-III.
+
+\subsection{Mutation}
+\label{sec:mutation}
+Mutation is the main variation operator. A child is mutated with probability $p_m$. Mutation moves $\max(1, B)$ locations, $B \sim \mathrm{Binomial}(|S|, \beta)$, each to one of its eight nearest free candidates with probability $p_\ell$ (a local move) or to a random candidate otherwise. With probability $p_r$, it also changes the size of the solution to the next or previous allowed size, guided by the loads of the containers: it adds locations next to the most loaded ones or removes the least loaded ones. These guided moves act as a light local search, so no separate local search procedure is needed.
+
+\subsection{Recombination}
+\label{sec:crossovers}
+Recombination is optional, and we study whether it helps. Most crossover operators treat genes independently, while the quality of a location depends on the locations around it, so we consider two spatially structured operators besides the classical one. All three produce two children from two parents, which are then repaired to the nearest allowed size:
+\begin{itemize}
+\item \emph{Uniform crossover} on sets, equivalent to uniform crossover on the binary representation: the locations common to both parents are kept, and each other location of either parent goes to one child or the other with probability $1/2$.
+\item \emph{Regional crossover}: a random candidate $c$ and a share $\rho \sim U(\rho_{\min}, \rho_{\max})$ are drawn, and the region $R$ is formed by the $\lceil \rho n \rceil$ candidates nearest to $c$ (a disc adapted to the density of candidates). The children exchange the parents' locations inside it: $S'_1 = (S_1 \setminus R) \cup (S_2 \cap R)$ and $S'_2 = (S_2 \setminus R) \cup (S_1 \cap R)$, so each inherits two spatially coherent partial layouts.
+\item \emph{Graph crossover} \cite{jordan2025crossover}: the region $R$ is the union of $g$ subgraphs, each a random candidate and its neighbours up to $h$ hops in the Delaunay graph of the candidates, and the children exchange the parents' locations inside $R$ as above.
+\end{itemize}
+
+\paragraph{On the boundary crossover.}
+An earlier version of this work proposed a boundary-focused crossover that exchanged the active genes whose neighbours (within a distance threshold $t$) were mostly inactive. With the tuned threshold ($t = 5.5$\,km, a large part of the city), every active gene qualifies as a boundary gene in all the cities ($100\%$ of them in Valencia and Donostia), so the operator reduces to exchanging the active genes of the parents with a fixed probability, i.e., a uniform crossover. Its advantage over uniform crossover reported then came from a lower mutation rate in its tuned configuration and from the degenerate solutions rewarded by the Moran's I objective (Section~\ref{sec:equity}), not from the operator.
+
+\begin{algorithm}[t]
+\caption{NSGA-II/III for UCO container placement}
+\label{alg:nsga}
+\begin{algorithmic}[1]
+\Require candidates $\mathcal{L}$, population grid, range $[k_{\min}, k_{\max}]$, current layout $S_0$
+\State $K \gets m$ sizes evenly spaced in $[k_{\min}, k_{\max}] \cup \{|S_0|\}$
+\State $Q \gets \{\textsc{Repair}(S_0)\} \cup \{\mu - 1$ random solutions with sizes in $K\}$
+\For{$g = 1, \dots, G$}
+    \State $O \gets \emptyset$
+    \While{$|O| < \mu$}
+        \State $S_1, S_2 \gets$ binary tournaments on non-domination rank in $Q$
+        \State $(S'_1, S'_2) \gets \textsc{Crossover}(S_1, S_2)$ with probability $p_c$ (optional), else $(S_1, S_2)$
+        \State mutate each child with probability $p_m$; $O \gets O \cup \{\textsc{Repair}(S'_1), \textsc{Repair}(S'_2)\}$
+    \EndWhile
+    \State $Q \gets$ best $\mu$ of $Q \cup O$ (without duplicates) by non-dominated sorting, then crowding distance (NSGA-II) or reference-direction niching (NSGA-III)
+\EndFor
+\State \Return the non-dominated solutions of $Q$
+\end{algorithmic}
+\end{algorithm}

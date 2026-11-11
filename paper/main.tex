@@ -1,0 +1,95 @@
+\documentclass[AMA,Times1COL]{WileyNJDv5}
+%\documentclass[HARVARD,LATO2COL]{WileyNJDv5}
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{graphicx}
+
+\articletype{Article Type}%
+
+\received{Date Month Year}
+\revised{Date Month Year}
+\accepted{Date Month Year}
+\journal{Journal}
+\volume{00}
+\copyyear{2023}
+\startpage{1}
+
+\raggedbottom
+
+
+
+\begin{document}
+
+\title{Multi-Objective Optimization for UCO Container Placement}
+
+\author[1]{Joan C. Moreno}
+\author[1]{Juan M. Alberola}
+\author[2]{Victor Sanchez-Anguix}
+\author[1]{Jaume Jordán}
+\author[1]{Vicente Julián}
+\author[1]{Vicent Botti}
+
+\authormark{MORENO \textsc{et al.}}
+\titlemark{Multi-Objective Optimization for UCO Container Placement}
+
+\address[1]{\orgdiv{Valencian Research Institute for Artificial Intelligence}, \orgname{Universitat Politècnica de València}, \orgaddress{\state{Valencia}, \country{Spain}}}
+
+\address[2]{\orgdiv{Grupo de Sistemas de Optimización Aplicada}, \orgname{Universitat Politècnica de València}, \orgaddress{\state{Valencia}, \country{Spain}}}
+
+\corres{Corresponding author Joan C. Moreno. \email{joamoteo@upv.es}}
+
+\presentaddress{Universitat Politècnica de València, Camí de Vera s/n, 46022, Valencia, Spain.}
+
+
+%\fundingInfo{Text}
+%\JELinfo{ejlje}
+
+\abstract[Abstract]{Used cooking oil (UCO) is a valuable raw material for biodiesel when citizens dispose of it in collection containers, so where cities place those containers matters. We model the placement of UCO containers as a multi-objective facility location problem that minimizes the number of containers, the population left without capacity, the spatial inequity of that shortage, and the mean distance to the nearest container. Inequity is defined as the population-weighted dispersion of the unserved share between neighbourhoods on a fixed spatial support; we show that Moran's index of spatial autocorrelation, an intuitive alternative, is ill-posed for optimization, and that classical non-spatial equity measures rank solutions differently. We solve the problem with an NSGA-II on sets of locations, driven by a load-guided mutation over a discrete set of network sizes. An extensive study on real data from five Spanish cities (3,490 runs) shows that these two components are essential, that NSGA-III brings no improvement, and that recombination does not help either: neither uniform crossover nor two spatially structured crossovers improve on mutation alone, even after tuning. Adding distance as an objective costs at most 3.3\% of hypervolume in the three-objective space while gaining up to 23\% in the four-objective space, and the most accessible fair layouts are within 6--9\% of the best known solutions of the corresponding $p$-median problem. With today's number of containers, every front contains layouts that are better than the current ones in unserved population, spatial inequity (by a factor of 2 to 7) and mean distance at once. The method is available as an open-source service integrated in a data space.}
+
+\keywords{Urban Recycling, Genetic Algorithms, Used Cooking Oil, Maximum Covering Location Problem, Environmental Sustainability, Waste Management Optimization, Multi-Objective Optimization}
+
+\jnlcitation{\cname{%
+\author{Taylor M.},
+\author{Lauritzen P},
+\author{Erath C}, and
+\author{Mittal R}}.
+\ctitle{On simplifying ‘incremental remap’-based transport schemes.} \cjournal{\it J Comput Phys.} \cvol{2021;00(00):1--18}.}
+
+
+\maketitle
+
+\renewcommand\thefootnote{}
+% \footnotetext{\textbf{Abbreviations:} ANA, anti-nuclear antibodies; APC, antigen-presenting cells; IRF, interferon regulatory factor.}
+
+\renewcommand\thefootnote{\fnsymbol{footnote}}
+\setcounter{footnote}{1}
+
+\input{introduction}
+\input{literature}
+\input{problem_definition}
+\input{ga}
+\input{experiments}
+\input{conclusions}
+%\backmatter
+
+% \bmsection*{Author contributions}
+% This is an author contribution text. This is an author contribution text. This is an author contribution text. This is an author contribution text. This is an author contribution text.
+
+\bmsection*{Acknowledgments}
+This work is partially funded by the Spanish Ministry of Science and Innovation under the project PID2021-123673OB-C31, project TED2021-131295B-C32 from the State Research Agency, and DIGITAL2022 CLOUDAI02/S8760000 from the European Commission. 
+
+% \bmsection*{Financial disclosure}
+
+% None reported.
+
+\bmsection*{Conflict of interest}
+
+The authors declare no potential conflict of interests.
+
+\bibliography{references}
+
+\end{document}
+    

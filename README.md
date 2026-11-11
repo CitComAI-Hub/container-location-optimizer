@@ -169,6 +169,33 @@ A `v*` tag builds and publishes `ghcr.io/citcomai-hub/container-location-optimiz
 git tag v1.0 && git push origin v1.0
 ```
 
+## Research
+
+The trade-off variant and its evaluation are documented in [RESEARCH.md](./RESEARCH.md) (history, what is
+implemented, studies and results, open issues), [`experiments/`](./experiments/README.md) (how to reproduce them) and
+[`paper/`](./paper/README.md) (the journal draft).
+
+## Publications
+
+The single-layout method (single objective) is described in:
+
+> J. C. Moreno, J. M. Alberola, V. Sanchez-Anguix, J. Jordán, V. Julián, V. Botti. *Optimizing UCO container placement
+> in urban environments: a genetic algorithm approach*. International Conference on Intelligent Data Engineering and
+> Automated Learning (IDEAL), Springer, 2024, pp. 208–219.
+
+```bibtex
+@inproceedings{moreno2024optimizing,
+  title={Optimizing uco container placement in urban environments: A genetic algorithm approach},
+  author={Moreno, Joan C and Alberola, Juan M and Sanchez-Anguix, Victor and Jord{\'a}n, Jaume and Juli{\'a}n, Vicente and Botti, Vicent},
+  booktitle={International Conference on Intelligent Data Engineering and Automated Learning},
+  pages={208--219},
+  year={2024},
+  organization={Springer}
+}
+```
+
+The trade-off variant is the subject of a journal paper in preparation ([`paper/`](./paper/README.md)).
+
 ## Data and credits
 
 - Population: Schiavina M., Freire S., MacManus K. (2023). *GHS-POP R2023A – GHS population grid multitemporal (1975–2030)*.

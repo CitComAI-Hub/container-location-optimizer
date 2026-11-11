@@ -1,0 +1,19 @@
+\begin{table}[htbp]
+\centering
+\small
+\caption{Ablation of the recommended configuration (NSGA-II, four objectives, no crossover): HV4, mean of 30 runs, with one component removed at a time: the discrete set of sizes (all sizes in the range allowed), the load-guided resizing (random instead), the comparison of $f_2$ in steps (exact values), the local moves of the mutation (all moves to random candidates) and the seeding of the current layout. $\hat{A}_{12}$: probability that a run of the full configuration beats a run without the component (Holm-corrected Mann--Whitney U; $^\dagger$: not significant).}
+\label{tab:ablation}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lccccccccccc}
+\toprule
+& \textbf{Full} & \multicolumn{2}{c}{\textbf{All sizes}} & \multicolumn{2}{c}{\textbf{Random resize}} & \multicolumn{2}{c}{\textbf{Exact $f_2$}} & \multicolumn{2}{c}{\textbf{No local moves}} & \multicolumn{2}{c}{\textbf{No seed}} \\
+\textbf{City} & HV4 & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ \\
+\midrule
+Donostia & 0.6554 & 0.5170 & 1.00 & 0.4960 & 1.00 & 0.6465 & 0.84 & 0.6349 & 0.99 & 0.6557 & 0.52$^\dagger$ \\
+Valladolid & 0.5248 & 0.3962 & 1.00 & 0.4103 & 1.00 & 0.5183 & 0.72 & 0.5128 & 0.88 & 0.5232 & 0.56$^\dagger$ \\
+Valencia & 0.5480 & 0.3011 & 1.00 & 0.3292 & 1.00 & 0.5382 & 0.82 & 0.5251 & 0.96 & 0.5491 & 0.46$^\dagger$ \\
+Málaga & 0.6308 & 0.5167 & 1.00 & 0.4955 & 1.00 & 0.6041 & 0.99 & 0.6050 & 1.00 & 0.6292 & 0.61$^\dagger$ \\
+Sevilla & 0.6423 & 0.5284 & 1.00 & 0.5262 & 1.00 & 0.6257 & 0.97 & 0.6238 & 1.00 & 0.6458 & 0.31 \\
+\bottomrule
+\end{tabular}}
+\end{table}

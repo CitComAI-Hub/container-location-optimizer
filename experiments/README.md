@@ -15,6 +15,8 @@ Reproduce the evaluation of the multi-objective variant (`services/pareto.py`) o
 | `equity_measures.py` | Robustness of the equity measure to its parameters and comparison with classical measures |
 | `bounds.py` | Lagrangian lower bound and best known solution of the p-median problem at today's size (`slurm/bounds.sbatch`) |
 | `stats_utils.py` | Effect size, Mann–Whitney U and Holm correction shared by the analyses |
+| `link_results.sh RUNS_DIR… OUT_DIR` | Builds the input directory of `analyse.py` from the outputs of `run.py` (short names for the recombination variants) |
+| `summary/` | The outputs of the analyses (`analysis.json`, `revision.json`, `bounds_*.json`, `equity_measures.json`, `single_*.json`): enough to regenerate the paper's tables with `RESULTS_DIR=summary REVISION_DIR=summary python tables.py` |
 | `figures.py`, `tables.py` | Figures and LaTeX tables of the paper → `figures/` |
 
 ```console
@@ -54,3 +56,9 @@ population GHS-POP R2023A (JRC, CC BY 4.0).
 `analyse.py` expects the runs of studies 1–2 in one directory, the tuned and no-crossover variants named
 `nsga2-4_none`, `nsga2-4_regional-small`, `nsga2-4_graph-small` and `nsga2-3_none` (links to the files of `run.py`);
 `analyse_revision.py` reads the runs of studies 2–4 as `run.py` names them.
+
+The raw runs of the paper (~190 MB of `.npz`) are not in git: they are on the VRAIN cluster under
+`~/container-location/` (`results/`, `results_rev/`, `results_all/`), listed in [RESEARCH.md](../RESEARCH.md#raw-data-not-in-git).
+To analyse them locally, copy them (`rsync -a vrhpcadm1.dsic.upv.es:container-location/results_all/ …`, with
+`-L` to follow the links) and run `analyse.py`, `analyse_revision.py` and `figures.py` with `RESULTS_DIR` and
+`REVISION_DIR` pointing to them.

@@ -1,0 +1,20 @@
+\begin{table}[htbp]
+\centering
+\small
+\caption{Recombination (NSGA-II, four objectives): HV4 after 300 generations, mean (standard deviation) of 30 runs, without crossover and with four crossovers: regional and graph crossover with small regions (tuned, Section~\ref{sec:recombination}), regional crossover with large regions (10--50\% of the candidates) and uniform crossover. $\hat{A}_{12}$: probability that a run with the crossover beats a run without it (Holm-corrected Mann--Whitney U; $^\dagger$: not significant).}
+\label{tab:recombination}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lccccccccc}
+\toprule
+& \textbf{None} & \multicolumn{2}{c}{\textbf{Regional, small}} & \multicolumn{2}{c}{\textbf{Graph, small}} & \multicolumn{2}{c}{\textbf{Regional, large}} & \multicolumn{2}{c}{\textbf{Uniform}} \\
+\cmidrule(lr){3-4} \cmidrule(lr){5-6} \cmidrule(lr){7-8} \cmidrule(lr){9-10}
+\textbf{City} & HV4 & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ & HV4 & $\hat{A}_{12}$ \\
+\midrule
+Donostia & 0.6554 (0.0051) & 0.6528 (0.0044) & 0.31 & 0.6507 (0.0053) & 0.25 & 0.6302 (0.0063) & 0.00 & 0.6042 (0.0089) & 0.00 \\
+Valladolid & 0.5248 (0.0077) & 0.5209 (0.0074) & 0.37$^\dagger$ & 0.5221 (0.0057) & 0.40$^\dagger$ & 0.5147 (0.0049) & 0.13 & 0.4880 (0.0061) & 0.00 \\
+Valencia & 0.5480 (0.0078) & 0.5506 (0.0076) & 0.58$^\dagger$ & 0.5490 (0.0104) & 0.54$^\dagger$ & 0.5309 (0.0079) & 0.06 & 0.5005 (0.0131) & 0.00 \\
+Málaga & 0.6308 (0.0039) & 0.6316 (0.0047) & 0.58$^\dagger$ & 0.6305 (0.0041) & 0.50$^\dagger$ & 0.6160 (0.0048) & 0.01 & 0.5853 (0.0069) & 0.00 \\
+Sevilla & 0.6423 (0.0053) & 0.6446 (0.0053) & 0.63$^\dagger$ & 0.6447 (0.0053) & 0.61$^\dagger$ & 0.6345 (0.0058) & 0.18 & 0.6076 (0.0074) & 0.00 \\
+\bottomrule
+\end{tabular}}
+\end{table}

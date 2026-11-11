@@ -1,0 +1,16 @@
+{
+ "valladolid": {
+  "k0": 174,
+  "lower_bound": 161.47241443988224,
+  "lagrangian_heuristic": 179.87334041940215,
+  "best_known": 168.49374556876498,
+  "single": 195.1680334027374,
+  "front_closest": 178.66791514467064,
+  "best_known_layout": {
+   "unserved": 105006.1862647376,
+   "inequity": 0.122,
+   "mean_distance": 168.4937455045167,
+   "p95": 336.01911165221276
+  }
+ }
+}

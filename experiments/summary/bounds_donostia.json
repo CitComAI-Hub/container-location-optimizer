@@ -1,0 +1,16 @@
+{
+ "donostia": {
+  "k0": 111,
+  "lower_bound": 130.5054795929552,
+  "lagrangian_heuristic": 133.77400401478593,
+  "best_known": 132.2227962913022,
+  "single": 139.56853184992482,
+  "front_closest": 140.1819144661522,
+  "best_known_layout": {
+   "unserved": 71722.22628204207,
+   "inequity": 0.088,
+   "mean_distance": 132.22279613184966,
+   "p95": 252.60536361176503
+  }
+ }
+}
