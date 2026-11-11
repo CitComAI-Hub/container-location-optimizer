@@ -112,6 +112,23 @@ def main():
             for key, budget in budgets.items():
                 if budget is not None:
                     entry[f"hv_at_{key}"] = [at_budget(r, key, budget) for r in rs]
+            # HV4 against time on a common grid (anytime curves), up to twice the budget
+            if budgets["time"]:
+                grid = np.linspace(0, 2 * budgets["time"], 41)
+                curves = []
+                for r in rs:
+                    snaps = r["snapshots"]
+                    times = r["times"][snapshot_generations(len(r["times"]) - 1, len(snaps))]
+                    hvs = np.array([H(x) for x in snaps])
+                    idx = np.searchsorted(times, grid, side="right") - 1
+                    curves.append(np.where(idx >= 0, hvs[np.maximum(idx, 0)], np.nan))
+                curves = np.array(curves)
+                entry["curve"] = {
+                    "time": grid.tolist(),
+                    "mean": np.nanmean(curves, 0).tolist(),
+                    "sd": np.nanstd(curves, 0).tolist(),
+                    "final_time": float(np.median([r["times"][-1] for r in rs])),
+                }
             entry["summary"] = {
                 k: summary(entry[k])
                 for k in ("hv", "hv_at_evaluations", "hv_at_time", "evaluations", "time")

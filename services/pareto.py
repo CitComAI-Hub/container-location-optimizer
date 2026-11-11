@@ -75,10 +75,10 @@ class ParetoParameters:
     mating: str = "size"  # the second parent has as many containers ("any": not)
     guided_repair: bool = False  # regional/uniform/graph: repair by the loads (else at random)
     tile: float = 2.0  # partition: side of the tiles, in mean spacings between sites
-    init: str = (
-        "random"  # "demand" (k-means++ by population) or "balanced" (equal-population cells)
-    )
-    init_share: float = 0.5  # with init="demand", share of the first population seeded that way
+    # First population: "random", "demand" (k-means++ by population), "balanced"
+    # (equal-population cells) or "mixed" (half each), init_share of it seeded so
+    init: str = "random"
+    init_share: float = 0.5
     tile_max: float = 0.0  # partition: if > tile, the side is drawn in [tile, tile_max]
     tile_count: bool = True  # partition: compare the parents in a tile also by their sites
     tile_equity: bool = False  # partition: ... and by the dispersion of the unserved share
@@ -147,8 +147,8 @@ class ParetoAlgorithm:
             )
         if params.crossover not in CROSSOVERS:
             raise ValueError(f"crossover must be one of {', '.join(CROSSOVERS)}")
-        if params.init not in ("random", "demand", "balanced"):
-            raise ValueError("init must be 'random', 'demand' or 'balanced'")
+        if params.init not in ("random", "demand", "balanced", "mixed"):
+            raise ValueError("init must be 'random', 'demand', 'balanced' or 'mixed'")
         if params.mating not in ("any", "size"):
             raise ValueError("mating must be 'any' or 'size'")
         if params.algorithm not in ("nsga2", "nsga3"):
@@ -771,8 +771,10 @@ class ParetoAlgorithm:
         start = time.monotonic()
         population = self.seeds()
         while len(population) < p.population_size:
-            if p.init != "random" and self.rng.random() < p.init_share:
-                seed = self.demand_layout() if p.init == "demand" else self.balanced_layout()
+            r = self.rng.random()
+            if p.init != "random" and r < p.init_share:
+                balanced = p.init == "balanced" or (p.init == "mixed" and r < p.init_share / 2)
+                seed = self.balanced_layout() if balanced else self.demand_layout()
             else:
                 seed = self.random_layout()
             population.append(seed)
