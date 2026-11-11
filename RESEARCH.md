@@ -37,9 +37,10 @@ State of the research behind the trade-off jobs, to resume the work. The service
 | `services/problem.py` | Evaluation (nearest-neighbour on population pixels, ~2 ms), `evaluate_sites`, equity metrics of any layout |
 | `services/jobs.py`, `server.py`, `static/` | Jobs of kind `pareto`, `GET /api/jobs/<id>/layouts/<n>`, front table in the UI |
 
-Releases: v1.2 (trade-off, regional crossover) deployed on 2026-11-11; v1.3 (no crossover by default) published, its
-data space PR (`chore/container-location-v1.3`, bumps `image_tag` in
-`providers/vrain_upv/container_location/envs/dev.tfvars`) pending merge and deployment at the time of writing.
+Releases: v1.2 (trade-off, regional crossover) deployed on 2026-11-11; v1.3 (no crossover by default) deployed on
+2026-11-11 (data space PR #31). In production (VLCi data, 158 oil containers, 8,308 candidate sites, one CPU at low
+priority) a 300-generation trade-off job takes 104 s with v1.3 against 291 s with v1.2; with today's 158 containers
+its front reaches 0.9 inequity points (today 7.6) and 207 m mean distance (today 379 m).
 
 ## Experiments and results
 
@@ -79,7 +80,7 @@ On the cluster (`vrhpcadm1.dsic.upv.es`, see the experiments README), under `~/c
   agree on the framing: the contribution is the equity measure, the 4-objective formulation, the mutation-driven
   design (ablation) and the bounds; the negative result on recombination includes the graph crossover of Jordán et
   al. Target suggested in the draft's TODO: *Expert Systems*.
-- **Service**: deploy v1.3 once its PR is merged. The UI of the trade-off jobs has not been checked in a browser.
+- **Service**: the UI of the trade-off jobs has not been checked in a browser (test jobs "Trade-off v1.2 (prueba)" and "Trade-off v1.3 (prueba)" are in the shared job list).
   The single-objective GA is 16 % above the best known mean distance in Valladolid: the alternating local search of
   `experiments/bounds.py` could polish its result.
 - **Method**: with 4 objectives the whole population is non-dominated, so the fairest layouts are less fair than
