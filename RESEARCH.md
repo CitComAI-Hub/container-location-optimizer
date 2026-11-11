@@ -74,6 +74,46 @@ On the cluster (`vrhpcadm1.dsic.upv.es`, see the experiments README), under `~/c
 | `results_v1/` | First 3-objective batch (superseded) | 170585 |
 | `ghs/`, `cache/` | GHS-POP tiles and population cache used by the runs | |
 
+## Partition crossover (branch `feat/partition-crossover`, 2026-11-11)
+
+Why the earlier crossovers did not help: parents of any size were mated (11 size levels), the repair after
+crossover dropped or added sites at random, and the exchanged region was chosen blindly.
+
+- **Exact decomposition does not exist here** (`crossover="components"`, kept for the analysis): linking the
+  sites that can serve each pixel in a child gives components across which count, unserved people and distance
+  are exactly additive (`test_partition_components_are_additive`), but two good parents of the same size give
+  a *single* component (Donostia, every size level): their Voronoi cells interlock. A GPX-style partition
+  crossover (Whitley) does not transfer.
+- **Proposed operator** (`crossover="partition"`, `mating="size"`): a grid of tiles at a random offset (side
+  `tile` × mean spacing, default 2); each tile is taken from the parent that dominates in it on (containers,
+  unserved, distance × people); ties at random, complementary in the two children; repaired by the loads.
+  Same-size mating is essential.
+- **Baseline**: `crossover="union"` (Alp, Erkut and Drezner 2003: union, then drop by a weighted cost).
+- Moran's I is no longer computed for every evaluation (half of the evaluation time; values unchanged).
+
+Study (NSGA-II, 4 objectives, 5 cities × 30 seeds, 1,200 runs, Slurm 175295/175296 + 176496, raw runs in
+`~/container-location/results_ops/`, summary `experiments/summary/operators.json`, `analyse_operators.py`).
+Time is the fair budget: the evaluation counter only counts objective evaluations, not the internal ones of
+`union` or the repairs. HV4 at the median time of `partition` (41–130 s):
+
+| City | none (300 gen) | none (1200 gen) | **partition** | union | regional + fixes |
+|---|---|---|---|---|---|
+| Donostia | .577 | .598 | **.626** | .611 | .584 |
+| Valladolid | .414 | .425 | **.445** | .448 | .421 |
+| Valencia | .483 | .505 | **.536** | .525 | .496 |
+| Málaga | .571 | .607 | **.612** | .598 | .578 |
+| Sevilla | .566 | .613 | **.617** | .614 | .576 |
+
+- partition vs none with 4× generations (same time): better in 5/5 (+4.6, +4.7, +6.1, +0.8, +0.6 %;
+  A12 1.00, 1.00, 1.00, 0.80, 0.74; Holm p < 0.002).
+- partition vs union, same time: better in 3/5 (A12 ≥ 0.94), no difference in Valladolid and Sevilla. At the
+  same number of generations union is better (−0.2 to −4.3 %), but it is 3–5× slower (132–638 s).
+- Ablations: without same-size mating, +3 % over `none` instead of +7–11 % (and not better than none-1200 in
+  Málaga/Sevilla); regional crossover with same-size mating and guided repair ≈ none (+1–2 %): the fitness-informed
+  choice per tile is what matters. Tile side: 1 worse; 2 and 4 equivalent (4 slightly better in Valladolid/Valencia).
+- Caveat: the fairest layouts of the front are less fair with partition (min inequity ≈ 2× that of none-1200);
+  the tile choice ignores inequity (not additive). Gains are in the rest of the front.
+
 ## Open issues and next steps
 
 - **Paper** (`paper/`): not compiled yet (no LaTeX here); compile in Overleaf and review. The co-authors should
